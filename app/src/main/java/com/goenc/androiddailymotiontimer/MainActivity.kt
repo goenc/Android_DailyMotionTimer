@@ -13,12 +13,15 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -45,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
@@ -120,138 +124,173 @@ private fun WorkoutSecondTimerScreen(
             ),
         color = MaterialTheme.colorScheme.background.copy(alpha = 0.92f),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .safeDrawingPadding()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween,
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize(),
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = "筋トレ秒",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "累計経過 ${uiState.elapsedTimeText}",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            val countFontSize = if (maxHeight < 700.dp) 178.sp else 196.sp
+            val countLineHeight = if (maxHeight < 700.dp) 168.sp else 186.sp
 
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(
-                    text = uiState.remainingSeconds.toString(),
-                    fontSize = 164.sp,
-                    lineHeight = 164.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center,
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "筋トレ秒",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "累計経過 ${uiState.elapsedTimeText}",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(scrollState),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        .weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                 ) {
-                    (1..10).forEach { second ->
-                        FilterChip(
-                            selected = uiState.selectedSeconds == second,
-                            onClick = { onSecondSelected(second) },
-                            label = { Text("${second}秒") },
-                            enabled = !uiState.isRunning,
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = !uiState.isRunning,
+                    Text(
+                        text = uiState.remainingSeconds.toString(),
+                        fontSize = countFontSize,
+                        lineHeight = countLineHeight,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center,
+                        softWrap = false,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(scrollState),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        (1..10).forEach { second ->
+                            FilterChip(
                                 selected = uiState.selectedSeconds == second,
-                                borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                selectedBorderColor = MaterialTheme.colorScheme.primary,
+                                onClick = { onSecondSelected(second) },
+                                label = { Text("${second}秒") },
+                                enabled = !uiState.isRunning,
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = !uiState.isRunning,
+                                    selected = uiState.selectedSeconds == second,
+                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                    selectedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                ),
+                            )
+                        }
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TimerToggleRow(
+                        label = "ループ",
+                        checked = uiState.loopEnabled,
+                        onCheckedChange = onLoopChanged,
+                    )
+                    TimerToggleRow(
+                        label = "毎秒バイブ",
+                        checked = uiState.tickVibrationEnabled,
+                        onCheckedChange = onTickVibrationChanged,
+                    )
+                    TimerToggleRow(
+                        label = "ループ完了バイブ",
+                        checked = uiState.loopVibrationEnabled,
+                        onCheckedChange = onLoopVibrationChanged,
+                    )
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TimerActionButton(
+                            label = "開始",
+                            onClick = onStart,
+                            enabled = !uiState.isRunning,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TimerActionButton(
+                            label = "一時停止",
+                            onClick = onPause,
+                            enabled = uiState.isRunning,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                             ),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        TimerActionButton(
+                            label = "リセット",
+                            onClick = onReset,
+                            enabled = uiState.isRunning ||
+                                uiState.remainingSeconds != uiState.selectedSeconds ||
+                                uiState.elapsedTimeText != "00:00",
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                contentColor = MaterialTheme.colorScheme.onSurface,
                             ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         )
                     }
                 }
             }
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                TimerToggleRow(
-                    label = "ループ",
-                    checked = uiState.loopEnabled,
-                    onCheckedChange = onLoopChanged,
-                )
-                TimerToggleRow(
-                    label = "毎秒バイブ",
-                    checked = uiState.tickVibrationEnabled,
-                    onCheckedChange = onTickVibrationChanged,
-                )
-                TimerToggleRow(
-                    label = "ループ完了バイブ",
-                    checked = uiState.loopVibrationEnabled,
-                    onCheckedChange = onLoopVibrationChanged,
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Button(
-                        onClick = onStart,
-                        enabled = !uiState.isRunning,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(18.dp),
-                    ) {
-                        Text("開始")
-                    }
-                    Button(
-                        onClick = onPause,
-                        enabled = uiState.isRunning,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        ),
-                    ) {
-                        Text("一時停止")
-                    }
-                    Button(
-                        onClick = onReset,
-                        enabled = uiState.isRunning ||
-                            uiState.remainingSeconds != uiState.selectedSeconds ||
-                            uiState.elapsedTimeText != "00:00",
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    ) {
-                        Text("リセット")
-                    }
-                }
-            }
         }
+    }
+}
+
+@Composable
+private fun TimerActionButton(
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    colors: androidx.compose.material3.ButtonColors = ButtonDefaults.buttonColors(),
+    border: BorderStroke? = null,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = 46.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = colors,
+        border = border,
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
+    ) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            softWrap = false,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
+        )
     }
 }
 
@@ -263,24 +302,26 @@ private fun TimerToggleRow(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        tonalElevation = 3.dp,
+        shape = RoundedCornerShape(18.dp),
+        tonalElevation = 2.dp,
         shadowElevation = 0.dp,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 14.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                softWrap = false,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(end = 12.dp),
+                    .padding(end = 10.dp),
             )
             Switch(
                 checked = checked,
