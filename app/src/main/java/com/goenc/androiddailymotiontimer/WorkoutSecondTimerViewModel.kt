@@ -25,11 +25,9 @@ const val DEFAULT_SECONDS = 5
 const val MIN_SECONDS = 1
 const val MAX_SECONDS = 10
 
-fun initialDisplayValueFor(selectedSeconds: Int): Int = (selectedSeconds - 1).coerceAtLeast(0)
-
 data class WorkoutTimerUiState(
     val selectedSeconds: Int = DEFAULT_SECONDS,
-    val remainingSeconds: Int = initialDisplayValueFor(DEFAULT_SECONDS),
+    val remainingSeconds: Int = DEFAULT_SECONDS,
     val elapsedTimeText: String = "00:00",
     val isRunning: Boolean = false,
     val loopEnabled: Boolean = false,
@@ -54,8 +52,9 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
     private var timerJob: Job? = null
     private var accumulatedElapsedMs: Long = 0L
     private var runStartedAtMs: Long? = null
-    private var processedElapsedSeconds: Long = 0L
-    private var displayedRemainingSeconds: Int = initialDisplayValueFor(DEFAULT_SECONDS)
+    private var currentLoopStartedAtElapsedMs: Long = 0L
+    private var nextBoundaryIndex: Int = 1
+    private var displayedRemainingSeconds: Int = DEFAULT_SECONDS
 
     init {
         scope.launch {
@@ -66,9 +65,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
     fun setSelectedSeconds(seconds: Int) {
         if (_uiState.value.isRunning) return
         val clampedSeconds = seconds.coerceIn(MIN_SECONDS, MAX_SECONDS)
-        accumulatedElapsedMs = 0L
-        processedElapsedSeconds = 0L
-        displayedRemainingSeconds = initialDisplayValueFor(clampedSeconds)
+        resetTimerProgress(clampedSeconds)
         _uiState.update {
             it.copy(
                 selectedSeconds = clampedSeconds,
@@ -97,29 +94,18 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
     fun start() {
         val state = _uiState.value
         if (state.isRunning) return
-        val cycleMs = state.selectedSeconds * 1_000L
-        if (accumulatedElapsedMs >= cycleMs && state.remainingSeconds == 0) {
-            if (state.loopEnabled) {
-                displayedRemainingSeconds = initialDisplayValueFor(state.selectedSeconds)
-                _uiState.update { it.copy(remainingSeconds = displayedRemainingSeconds) }
-            } else {
-                accumulatedElapsedMs = 0L
-                processedElapsedSeconds = 0L
-                displayedRemainingSeconds = initialDisplayValueFor(state.selectedSeconds)
-                _uiState.update {
-                    it.copy(
-                        remainingSeconds = displayedRemainingSeconds,
-                        elapsedTimeText = formatElapsedTime(0L),
-                    )
-                }
+        val engine = WorkoutTimerEngine(state.selectedSeconds)
+        if (!state.loopEnabled && isSingleRunCompleted(engine)) {
+            resetTimerProgress(state.selectedSeconds)
+            _uiState.update {
+                it.copy(
+                    remainingSeconds = displayedRemainingSeconds,
+                    elapsedTimeText = formatElapsedTime(0L),
+                )
             }
         }
-        if (displayedRemainingSeconds == 0 && accumulatedElapsedMs % cycleMs == 0L) {
-            emitCountSwitchVibration(_uiState.value, displayedRemainingSeconds)
-        }
         runStartedAtMs = SystemClock.elapsedRealtime()
-        processedElapsedSeconds = accumulatedElapsedMs / 1_000L
-        _uiState.update { it.copy(isRunning = true) }
+        _uiState.update { it.copy(isRunning = true, remainingSeconds = displayedRemainingSeconds) }
         timerJob?.cancel()
         timerJob = scope.launch {
             while (isActive) {
@@ -131,7 +117,13 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
 
     fun pause() {
         if (!_uiState.value.isRunning) return
+        val engine = WorkoutTimerEngine(_uiState.value.selectedSeconds)
         accumulatedElapsedMs = currentTotalElapsedMs()
+        if (!_uiState.value.loopEnabled && isSingleRunCompleted(engine)) {
+            accumulatedElapsedMs = currentLoopStartedAtElapsedMs + engine.totalDurationMs
+            displayedRemainingSeconds = 0
+            nextBoundaryIndex = engine.boundaryCount + 1
+        }
         runStartedAtMs = null
         timerJob?.cancel()
         timerJob = null
@@ -141,10 +133,8 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
     fun reset() {
         timerJob?.cancel()
         timerJob = null
-        accumulatedElapsedMs = 0L
         runStartedAtMs = null
-        processedElapsedSeconds = 0L
-        displayedRemainingSeconds = initialDisplayValueFor(_uiState.value.selectedSeconds)
+        resetTimerProgress(_uiState.value.selectedSeconds)
         _uiState.update {
             it.copy(
                 remainingSeconds = displayedRemainingSeconds,
@@ -156,35 +146,37 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
 
     private suspend fun updateTimerState() {
         val state = _uiState.value
-        val cycleLength = state.selectedSeconds.toLong()
-        val cycleMs = cycleLength * 1_000L
+        val engine = WorkoutTimerEngine(state.selectedSeconds)
         val totalElapsedMs = currentTotalElapsedMs()
-        val currentWholeSeconds = totalElapsedMs / 1_000L
-
-        if (currentWholeSeconds > processedElapsedSeconds) {
-            for (second in (processedElapsedSeconds + 1)..currentWholeSeconds) {
-                val stepInCycle = (second % cycleLength).toInt()
-
-                if (stepInCycle == 0) {
-                    if (!state.loopEnabled) {
-                        displayedRemainingSeconds = 0
-                        accumulatedElapsedMs = cycleMs
-                        runStartedAtMs = null
-                        processedElapsedSeconds = cycleLength
-                        timerJob?.cancel()
-                        timerJob = null
-                        syncUiState(cycleMs, isRunning = false, remainingSeconds = displayedRemainingSeconds)
-                        return
-                    }
-
-                    displayedRemainingSeconds = initialDisplayValueFor(state.selectedSeconds)
+        while (true) {
+            val nextBoundaryElapsedMs = nextBoundaryElapsedMs(engine)
+            val loopFinished = totalElapsedMs >= currentLoopStartedAtElapsedMs + engine.totalDurationMs
+            when {
+                nextBoundaryElapsedMs != null && totalElapsedMs >= nextBoundaryElapsedMs -> {
+                    displayedRemainingSeconds = engine.displayValueForBoundary(nextBoundaryIndex)
                     emitCountSwitchVibration(state, displayedRemainingSeconds)
-                } else {
-                    displayedRemainingSeconds = state.selectedSeconds - 1 - stepInCycle
-                    emitCountSwitchVibration(state, displayedRemainingSeconds)
+                    nextBoundaryIndex += 1
                 }
+
+                loopFinished && state.loopEnabled -> {
+                    currentLoopStartedAtElapsedMs += engine.totalDurationMs
+                    displayedRemainingSeconds = engine.initialDisplayValue()
+                    nextBoundaryIndex = 1
+                }
+
+                loopFinished -> {
+                    accumulatedElapsedMs = currentLoopStartedAtElapsedMs + engine.totalDurationMs
+                    runStartedAtMs = null
+                    timerJob?.cancel()
+                    timerJob = null
+                    displayedRemainingSeconds = 0
+                    nextBoundaryIndex = engine.boundaryCount + 1
+                    syncUiState(accumulatedElapsedMs, isRunning = false, remainingSeconds = displayedRemainingSeconds)
+                    return
+                }
+
+                else -> break
             }
-            processedElapsedSeconds = currentWholeSeconds
         }
 
         syncUiState(totalElapsedMs, isRunning = true, remainingSeconds = displayedRemainingSeconds)
@@ -211,7 +203,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
 
     private suspend fun restoreSettings() {
         val settings = settingsStore.settings.first()
-        displayedRemainingSeconds = initialDisplayValueFor(settings.selectedSeconds)
+        resetTimerProgress(settings.selectedSeconds)
         _uiState.update { state ->
             state.copy(
                 selectedSeconds = settings.selectedSeconds,
@@ -252,6 +244,23 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
         val minutes = totalSeconds / 60L
         val seconds = totalSeconds % 60L
         return "%02d:%02d".format(minutes, seconds)
+    }
+
+    private fun resetTimerProgress(selectedSeconds: Int) {
+        accumulatedElapsedMs = 0L
+        currentLoopStartedAtElapsedMs = 0L
+        nextBoundaryIndex = 1
+        displayedRemainingSeconds = WorkoutTimerEngine(selectedSeconds).initialDisplayValue()
+    }
+
+    private fun nextBoundaryElapsedMs(engine: WorkoutTimerEngine): Long? {
+        if (nextBoundaryIndex > engine.boundaryCount) return null
+        return currentLoopStartedAtElapsedMs + engine.boundaryElapsedMs(nextBoundaryIndex)
+    }
+
+    private fun isSingleRunCompleted(engine: WorkoutTimerEngine): Boolean {
+        return accumulatedElapsedMs >= currentLoopStartedAtElapsedMs + engine.totalDurationMs &&
+            displayedRemainingSeconds == 0
     }
 
     override fun onCleared() {

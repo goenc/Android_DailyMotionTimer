@@ -43,6 +43,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -100,6 +103,7 @@ private fun WorkoutSecondTimerScreen(
     val context = LocalContext.current
     val secondOptions = (MIN_SECONDS..MAX_SECONDS).toList()
     val secondListState = rememberLazyListState()
+    var hasCenteredInitialSelection by remember { mutableStateOf(false) }
 
     DisposableEffect(view, uiState.isRunning) {
         view.keepScreenOn = uiState.isRunning
@@ -133,11 +137,17 @@ private fun WorkoutSecondTimerScreen(
             val countFontSize = if (maxHeight < 700.dp) 178.sp else 196.sp
             val countLineHeight = if (maxHeight < 700.dp) 168.sp else 186.sp
             val secondChipWidth = 72.dp
+            val secondChipSpacing = 8.dp
             val secondsRowHorizontalPadding = maxOf(0.dp, (maxWidth - secondChipWidth) / 2)
-            val initialDisplayValue = initialDisplayValueFor(uiState.selectedSeconds)
+            val selectedIndex = uiState.selectedSeconds - MIN_SECONDS
 
             LaunchedEffect(uiState.selectedSeconds) {
-                secondListState.scrollToItem(uiState.selectedSeconds - MIN_SECONDS)
+                if (hasCenteredInitialSelection) {
+                    secondListState.animateScrollToItem(selectedIndex)
+                } else {
+                    secondListState.scrollToItem(selectedIndex)
+                    hasCenteredInitialSelection = true
+                }
             }
 
             Column(
@@ -191,7 +201,7 @@ private fun WorkoutSecondTimerScreen(
                             .fillMaxWidth(),
                         state = secondListState,
                         contentPadding = PaddingValues(horizontal = secondsRowHorizontalPadding),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(secondChipSpacing),
                     ) {
                         items(secondOptions) { second ->
                             FilterChip(
@@ -261,7 +271,7 @@ private fun WorkoutSecondTimerScreen(
                             label = "リセット",
                             onClick = onReset,
                             enabled = uiState.isRunning ||
-                                uiState.remainingSeconds != initialDisplayValue ||
+                                uiState.remainingSeconds != uiState.selectedSeconds ||
                                 uiState.elapsedTimeText != "00:00",
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(
