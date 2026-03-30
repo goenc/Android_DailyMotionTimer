@@ -11,7 +11,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -26,7 +25,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -96,7 +98,8 @@ private fun WorkoutSecondTimerScreen(
 ) {
     val view = LocalView.current
     val context = LocalContext.current
-    val scrollState = rememberScrollState()
+    val secondOptions = (MIN_SECONDS..MAX_SECONDS).toList()
+    val secondListState = rememberLazyListState()
 
     DisposableEffect(view, uiState.isRunning) {
         view.keepScreenOn = uiState.isRunning
@@ -129,6 +132,13 @@ private fun WorkoutSecondTimerScreen(
         ) {
             val countFontSize = if (maxHeight < 700.dp) 178.sp else 196.sp
             val countLineHeight = if (maxHeight < 700.dp) 168.sp else 186.sp
+            val secondChipWidth = 72.dp
+            val secondsRowHorizontalPadding = maxOf(0.dp, (maxWidth - secondChipWidth) / 2)
+            val initialDisplayValue = initialDisplayValueFor(uiState.selectedSeconds)
+
+            LaunchedEffect(uiState.selectedSeconds) {
+                secondListState.scrollToItem(uiState.selectedSeconds - MIN_SECONDS)
+            }
 
             Column(
                 modifier = Modifier
@@ -176,18 +186,20 @@ private fun WorkoutSecondTimerScreen(
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Spacer(modifier = Modifier.height(10.dp))
-                    Row(
+                    LazyRow(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(scrollState),
+                            .fillMaxWidth(),
+                        state = secondListState,
+                        contentPadding = PaddingValues(horizontal = secondsRowHorizontalPadding),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        (1..10).forEach { second ->
+                        items(secondOptions) { second ->
                             FilterChip(
                                 selected = uiState.selectedSeconds == second,
                                 onClick = { onSecondSelected(second) },
                                 label = { Text("${second}秒") },
                                 enabled = !uiState.isRunning,
+                                modifier = Modifier.width(secondChipWidth),
                                 border = FilterChipDefaults.filterChipBorder(
                                     enabled = !uiState.isRunning,
                                     selected = uiState.selectedSeconds == second,
@@ -249,7 +261,7 @@ private fun WorkoutSecondTimerScreen(
                             label = "リセット",
                             onClick = onReset,
                             enabled = uiState.isRunning ||
-                                uiState.remainingSeconds != uiState.selectedSeconds ||
+                                uiState.remainingSeconds != initialDisplayValue ||
                                 uiState.elapsedTimeText != "00:00",
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(

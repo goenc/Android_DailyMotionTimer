@@ -25,9 +25,11 @@ const val DEFAULT_SECONDS = 5
 const val MIN_SECONDS = 1
 const val MAX_SECONDS = 10
 
+fun initialDisplayValueFor(selectedSeconds: Int): Int = (selectedSeconds - 1).coerceAtLeast(0)
+
 data class WorkoutTimerUiState(
     val selectedSeconds: Int = DEFAULT_SECONDS,
-    val remainingSeconds: Int = DEFAULT_SECONDS,
+    val remainingSeconds: Int = initialDisplayValueFor(DEFAULT_SECONDS),
     val elapsedTimeText: String = "00:00",
     val isRunning: Boolean = false,
     val loopEnabled: Boolean = false,
@@ -53,8 +55,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
     private var accumulatedElapsedMs: Long = 0L
     private var runStartedAtMs: Long? = null
     private var processedElapsedSeconds: Long = 0L
-    private var displayedRemainingSeconds: Int = DEFAULT_SECONDS
-    private var pendingLoopRestart: Boolean = false
+    private var displayedRemainingSeconds: Int = initialDisplayValueFor(DEFAULT_SECONDS)
 
     init {
         scope.launch {
@@ -67,8 +68,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
         val clampedSeconds = seconds.coerceIn(MIN_SECONDS, MAX_SECONDS)
         accumulatedElapsedMs = 0L
         processedElapsedSeconds = 0L
-        pendingLoopRestart = false
-        displayedRemainingSeconds = clampedSeconds
+        displayedRemainingSeconds = initialDisplayValueFor(clampedSeconds)
         _uiState.update {
             it.copy(
                 selectedSeconds = clampedSeconds,
@@ -100,14 +100,12 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
         val cycleMs = state.selectedSeconds * 1_000L
         if (accumulatedElapsedMs >= cycleMs && state.remainingSeconds == 0) {
             if (state.loopEnabled) {
-                pendingLoopRestart = false
-                displayedRemainingSeconds = state.selectedSeconds
+                displayedRemainingSeconds = initialDisplayValueFor(state.selectedSeconds)
                 _uiState.update { it.copy(remainingSeconds = displayedRemainingSeconds) }
             } else {
                 accumulatedElapsedMs = 0L
                 processedElapsedSeconds = 0L
-                pendingLoopRestart = false
-                displayedRemainingSeconds = state.selectedSeconds
+                displayedRemainingSeconds = initialDisplayValueFor(state.selectedSeconds)
                 _uiState.update {
                     it.copy(
                         remainingSeconds = displayedRemainingSeconds,
@@ -115,6 +113,9 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
                     )
                 }
             }
+        }
+        if (displayedRemainingSeconds == 0 && accumulatedElapsedMs % cycleMs == 0L) {
+            emitCountSwitchVibration(_uiState.value, displayedRemainingSeconds)
         }
         runStartedAtMs = SystemClock.elapsedRealtime()
         processedElapsedSeconds = accumulatedElapsedMs / 1_000L
@@ -131,7 +132,6 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
     fun pause() {
         if (!_uiState.value.isRunning) return
         accumulatedElapsedMs = currentTotalElapsedMs()
-        promoteNextLoopCycleIfNeeded(accumulatedElapsedMs, _uiState.value.selectedSeconds)
         runStartedAtMs = null
         timerJob?.cancel()
         timerJob = null
@@ -144,8 +144,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
         accumulatedElapsedMs = 0L
         runStartedAtMs = null
         processedElapsedSeconds = 0L
-        pendingLoopRestart = false
-        displayedRemainingSeconds = _uiState.value.selectedSeconds
+        displayedRemainingSeconds = initialDisplayValueFor(_uiState.value.selectedSeconds)
         _uiState.update {
             it.copy(
                 remainingSeconds = displayedRemainingSeconds,
@@ -157,42 +156,37 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
 
     private suspend fun updateTimerState() {
         val state = _uiState.value
-        val cycleMs = state.selectedSeconds * 1_000L
+        val cycleLength = state.selectedSeconds.toLong()
+        val cycleMs = cycleLength * 1_000L
         val totalElapsedMs = currentTotalElapsedMs()
         val currentWholeSeconds = totalElapsedMs / 1_000L
 
         if (currentWholeSeconds > processedElapsedSeconds) {
             for (second in (processedElapsedSeconds + 1)..currentWholeSeconds) {
-                val secondInCycle = ((second - 1L) % state.selectedSeconds.toLong()) + 1L
-                val isCycleComplete = secondInCycle == state.selectedSeconds.toLong()
+                val stepInCycle = (second % cycleLength).toInt()
 
-                if (isCycleComplete) {
-                    displayedRemainingSeconds = 0
-                    if (state.loopVibrationEnabled) {
-                        _vibrationEvents.tryEmit(VibrationEvent.LoopComplete)
-                    }
+                if (stepInCycle == 0) {
                     if (!state.loopEnabled) {
+                        displayedRemainingSeconds = 0
                         accumulatedElapsedMs = cycleMs
                         runStartedAtMs = null
-                        processedElapsedSeconds = cycleMs / 1_000L
+                        processedElapsedSeconds = cycleLength
                         timerJob?.cancel()
                         timerJob = null
                         syncUiState(cycleMs, isRunning = false, remainingSeconds = displayedRemainingSeconds)
                         return
                     }
-                    pendingLoopRestart = true
+
+                    displayedRemainingSeconds = initialDisplayValueFor(state.selectedSeconds)
+                    emitCountSwitchVibration(state, displayedRemainingSeconds)
                 } else {
-                    pendingLoopRestart = false
-                    displayedRemainingSeconds = state.selectedSeconds - secondInCycle.toInt()
-                    if (state.tickVibrationEnabled) {
-                        _vibrationEvents.tryEmit(VibrationEvent.Tick)
-                    }
+                    displayedRemainingSeconds = state.selectedSeconds - 1 - stepInCycle
+                    emitCountSwitchVibration(state, displayedRemainingSeconds)
                 }
             }
             processedElapsedSeconds = currentWholeSeconds
         }
 
-        promoteNextLoopCycleIfNeeded(totalElapsedMs, state.selectedSeconds)
         syncUiState(totalElapsedMs, isRunning = true, remainingSeconds = displayedRemainingSeconds)
     }
 
@@ -215,25 +209,27 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
         return accumulatedElapsedMs + max(0L, SystemClock.elapsedRealtime() - startedAtMs)
     }
 
-    private fun promoteNextLoopCycleIfNeeded(totalElapsedMs: Long, selectedSeconds: Int) {
-        val nextCycleThresholdMs = processedElapsedSeconds * 1_000L
-        if (pendingLoopRestart && totalElapsedMs > nextCycleThresholdMs) {
-            pendingLoopRestart = false
-            displayedRemainingSeconds = selectedSeconds
-        }
-    }
-
     private suspend fun restoreSettings() {
         val settings = settingsStore.settings.first()
-        displayedRemainingSeconds = settings.selectedSeconds
+        displayedRemainingSeconds = initialDisplayValueFor(settings.selectedSeconds)
         _uiState.update { state ->
             state.copy(
                 selectedSeconds = settings.selectedSeconds,
-                remainingSeconds = settings.selectedSeconds,
+                remainingSeconds = displayedRemainingSeconds,
                 loopEnabled = settings.loopEnabled,
                 tickVibrationEnabled = settings.tickVibrationEnabled,
                 loopVibrationEnabled = settings.loopVibrationEnabled,
             )
+        }
+    }
+
+    private fun emitCountSwitchVibration(state: WorkoutTimerUiState, displayedValue: Int) {
+        if (displayedValue == 0 && state.loopVibrationEnabled) {
+            _vibrationEvents.tryEmit(VibrationEvent.LoopComplete)
+            return
+        }
+        if (state.tickVibrationEnabled) {
+            _vibrationEvents.tryEmit(VibrationEvent.Tick)
         }
     }
 
