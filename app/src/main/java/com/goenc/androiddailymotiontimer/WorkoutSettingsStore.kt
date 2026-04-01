@@ -18,6 +18,8 @@ data class WorkoutTimerSettings(
     val earlyTickVolume: Int = DEFAULT_EARLY_TICK_VOLUME,
     val tickVolume: Int = DEFAULT_TICK_VOLUME,
     val loopCompleteVolume: Int = DEFAULT_LOOP_COMPLETE_VOLUME,
+    val normalVibrationLevel: Int = DEFAULT_NORMAL_VIBRATION_LEVEL,
+    val completeVibrationLevel: Int = DEFAULT_COMPLETE_VIBRATION_LEVEL,
 )
 
 class WorkoutSettingsStore(context: Context) {
@@ -39,6 +41,12 @@ class WorkoutSettingsStore(context: Context) {
                 .coerceIn(MIN_VOLUME, MAX_VOLUME),
             loopCompleteVolume = (preferences[LOOP_COMPLETE_VOLUME_KEY] ?: DEFAULT_LOOP_COMPLETE_VOLUME)
                 .coerceIn(MIN_VOLUME, MAX_VOLUME),
+            normalVibrationLevel = (
+                preferences[NORMAL_VIBRATION_LEVEL_KEY] ?: DEFAULT_NORMAL_VIBRATION_LEVEL
+                ).coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL),
+            completeVibrationLevel = (
+                preferences[COMPLETE_VIBRATION_LEVEL_KEY] ?: DEFAULT_COMPLETE_VIBRATION_LEVEL
+                ).coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL),
         )
     }
 
@@ -53,6 +61,10 @@ class WorkoutSettingsStore(context: Context) {
             preferences[TICK_VOLUME_KEY] = settings.tickVolume.coerceIn(MIN_VOLUME, MAX_VOLUME)
             preferences[LOOP_COMPLETE_VOLUME_KEY] =
                 settings.loopCompleteVolume.coerceIn(MIN_VOLUME, MAX_VOLUME)
+            preferences[NORMAL_VIBRATION_LEVEL_KEY] =
+                settings.normalVibrationLevel.coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL)
+            preferences[COMPLETE_VIBRATION_LEVEL_KEY] =
+                settings.completeVibrationLevel.coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL)
         }
     }
 
@@ -69,5 +81,7 @@ class WorkoutSettingsStore(context: Context) {
         private val EARLY_TICK_VOLUME_KEY = intPreferencesKey("early_tick_volume")
         private val TICK_VOLUME_KEY = intPreferencesKey("tick_volume")
         private val LOOP_COMPLETE_VOLUME_KEY = intPreferencesKey("loop_complete_volume")
+        private val NORMAL_VIBRATION_LEVEL_KEY = intPreferencesKey("normal_vibration_level")
+        private val COMPLETE_VIBRATION_LEVEL_KEY = intPreferencesKey("complete_vibration_level")
     }
 }

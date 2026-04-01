@@ -29,6 +29,10 @@ const val MAX_CUE_VOLUME = 100
 const val DEFAULT_EARLY_TICK_VOLUME = 45
 const val DEFAULT_TICK_VOLUME = 80
 const val DEFAULT_LOOP_COMPLETE_VOLUME = 80
+const val MIN_VIBRATION_LEVEL = 1
+const val MAX_VIBRATION_LEVEL = 4
+const val DEFAULT_NORMAL_VIBRATION_LEVEL = 2
+const val DEFAULT_COMPLETE_VIBRATION_LEVEL = 2
 
 data class WorkoutTimerUiState(
     val selectedSeconds: Int = DEFAULT_SECONDS,
@@ -42,6 +46,8 @@ data class WorkoutTimerUiState(
     val earlyTickVolume: Int = DEFAULT_EARLY_TICK_VOLUME,
     val tickVolume: Int = DEFAULT_TICK_VOLUME,
     val loopCompleteVolume: Int = DEFAULT_LOOP_COMPLETE_VOLUME,
+    val normalVibrationLevel: Int = DEFAULT_NORMAL_VIBRATION_LEVEL,
+    val completeVibrationLevel: Int = DEFAULT_COMPLETE_VIBRATION_LEVEL,
 )
 
 enum class VibrationEvent {
@@ -106,6 +112,22 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
 
     fun setLoopVibrationEnabled(enabled: Boolean) {
         _uiState.update { it.copy(loopVibrationEnabled = enabled) }
+        persistCurrentSettings()
+    }
+
+    fun setNormalVibrationLevel(value: Int) {
+        _uiState.update {
+            it.copy(normalVibrationLevel = value.coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL))
+        }
+        persistCurrentSettings()
+    }
+
+    fun setCompleteVibrationLevel(value: Int) {
+        _uiState.update {
+            it.copy(
+                completeVibrationLevel = value.coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL)
+            )
+        }
         persistCurrentSettings()
     }
 
@@ -262,6 +284,8 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
                 earlyTickVolume = settings.earlyTickVolume,
                 tickVolume = settings.tickVolume,
                 loopCompleteVolume = settings.loopCompleteVolume,
+                normalVibrationLevel = settings.normalVibrationLevel,
+                completeVibrationLevel = settings.completeVibrationLevel,
             )
         }
     }
@@ -306,6 +330,14 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
                     earlyTickVolume = state.earlyTickVolume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME),
                     tickVolume = state.tickVolume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME),
                     loopCompleteVolume = state.loopCompleteVolume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME),
+                    normalVibrationLevel = state.normalVibrationLevel.coerceIn(
+                        MIN_VIBRATION_LEVEL,
+                        MAX_VIBRATION_LEVEL,
+                    ),
+                    completeVibrationLevel = state.completeVibrationLevel.coerceIn(
+                        MIN_VIBRATION_LEVEL,
+                        MAX_VIBRATION_LEVEL,
+                    ),
                 )
             )
         }

@@ -51,6 +51,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +88,8 @@ class MainActivity : ComponentActivity() {
                     onLoopChanged = timerViewModel::setLoopEnabled,
                     onTickVibrationChanged = timerViewModel::setTickVibrationEnabled,
                     onLoopVibrationChanged = timerViewModel::setLoopVibrationEnabled,
+                    onNormalVibrationLevelChanged = timerViewModel::setNormalVibrationLevel,
+                    onCompleteVibrationLevelChanged = timerViewModel::setCompleteVibrationLevel,
                     onCountdownSoundChanged = timerViewModel::setCountdownSoundEnabled,
                     onEarlyTickVolumeChanged = timerViewModel::setEarlyTickVolume,
                     onTickVolumeChanged = timerViewModel::setTickVolume,
@@ -114,6 +117,8 @@ private fun WorkoutSecondTimerScreen(
     onLoopChanged: (Boolean) -> Unit,
     onTickVibrationChanged: (Boolean) -> Unit,
     onLoopVibrationChanged: (Boolean) -> Unit,
+    onNormalVibrationLevelChanged: (Int) -> Unit,
+    onCompleteVibrationLevelChanged: (Int) -> Unit,
     onCountdownSoundChanged: (Boolean) -> Unit,
     onEarlyTickVolumeChanged: (Int) -> Unit,
     onTickVolumeChanged: (Int) -> Unit,
@@ -128,6 +133,7 @@ private fun WorkoutSecondTimerScreen(
     val secondListState = rememberLazyListState()
     var hasCenteredInitialSelection by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    val latestUiState by rememberUpdatedState(uiState)
 
     DisposableEffect(view, uiState.isRunning) {
         view.keepScreenOn = uiState.isRunning
@@ -138,7 +144,12 @@ private fun WorkoutSecondTimerScreen(
 
     LaunchedEffect(vibrationEvents, context) {
         vibrationEvents.collectLatest { event ->
-            vibrate(context, event)
+            vibrate(
+                context = context,
+                event = event,
+                normalVibrationLevel = latestUiState.normalVibrationLevel,
+                completeVibrationLevel = latestUiState.completeVibrationLevel,
+            )
         }
     }
 
@@ -353,6 +364,8 @@ private fun WorkoutSecondTimerScreen(
             onEarlyTickVolumeChanged = onEarlyTickVolumeChanged,
             onTickVolumeChanged = onTickVolumeChanged,
             onLoopCompleteVolumeChanged = onLoopCompleteVolumeChanged,
+            onNormalVibrationLevelChanged = onNormalVibrationLevelChanged,
+            onCompleteVibrationLevelChanged = onCompleteVibrationLevelChanged,
         )
     }
 }
@@ -364,6 +377,8 @@ private fun CountdownSoundSettingsDialog(
     onEarlyTickVolumeChanged: (Int) -> Unit,
     onTickVolumeChanged: (Int) -> Unit,
     onLoopCompleteVolumeChanged: (Int) -> Unit,
+    onNormalVibrationLevelChanged: (Int) -> Unit,
+    onCompleteVibrationLevelChanged: (Int) -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -396,6 +411,22 @@ private fun CountdownSoundSettingsDialog(
                     value = uiState.loopCompleteVolume,
                     onValueChanged = onLoopCompleteVolumeChanged,
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "バイブ設定",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                VibrationLevelSelectorRow(
+                    label = "通常バイブ強度",
+                    selectedLevel = uiState.normalVibrationLevel,
+                    onLevelSelected = onNormalVibrationLevelChanged,
+                )
+                VibrationLevelSelectorRow(
+                    label = "完了バイブ強度",
+                    selectedLevel = uiState.completeVibrationLevel,
+                    onLevelSelected = onCompleteVibrationLevelChanged,
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
@@ -404,6 +435,56 @@ private fun CountdownSoundSettingsDialog(
                         Text("閉じる")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VibrationLevelSelectorRow(
+    label: String,
+    selectedLevel: Int,
+    onLevelSelected: (Int) -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "現在 $selectedLevel",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            (MIN_VIBRATION_LEVEL..MAX_VIBRATION_LEVEL).forEach { level ->
+                FilterChip(
+                    selected = selectedLevel == level,
+                    onClick = { onLevelSelected(level) },
+                    label = { Text(level.toString()) },
+                    modifier = Modifier.weight(1f),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = selectedLevel == level,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                    ),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                )
             }
         }
     }
@@ -508,7 +589,12 @@ private fun TimerToggleRow(
     }
 }
 
-private fun vibrate(context: Context, event: VibrationEvent) {
+private fun vibrate(
+    context: Context,
+    event: VibrationEvent,
+    normalVibrationLevel: Int,
+    completeVibrationLevel: Int,
+) {
     val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         context.getSystemService(VibratorManager::class.java)?.defaultVibrator
     } else {
@@ -517,14 +603,36 @@ private fun vibrate(context: Context, event: VibrationEvent) {
 
     if (!vibrator.hasVibrator()) return
 
-    val effect = when (event) {
-        VibrationEvent.Tick -> {
-            VibrationEffect.createOneShot(45L, VibrationEffect.DEFAULT_AMPLITUDE)
-        }
-        VibrationEvent.LoopComplete -> {
-            VibrationEffect.createWaveform(longArrayOf(0L, 70L, 45L, 120L), -1)
-        }
+    val clampedNormalLevel = normalVibrationLevel.coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL)
+    val clampedCompleteLevel = completeVibrationLevel.coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL)
+    val tickDuration = when (clampedNormalLevel) {
+        1 -> 25L
+        2 -> 45L
+        3 -> 65L
+        else -> 85L
+    }
+    val completePattern = when (clampedCompleteLevel) {
+        1 -> longArrayOf(0L, 45L, 65L, 70L)
+        2 -> longArrayOf(0L, 70L, 45L, 120L)
+        3 -> longArrayOf(0L, 90L, 40L, 150L)
+        else -> longArrayOf(0L, 110L, 35L, 180L)
     }
 
-    vibrator.vibrate(effect)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val effect = when (event) {
+            VibrationEvent.Tick -> {
+                VibrationEffect.createOneShot(tickDuration, VibrationEffect.DEFAULT_AMPLITUDE)
+            }
+            VibrationEvent.LoopComplete -> {
+                VibrationEffect.createWaveform(completePattern, -1)
+            }
+        }
+        vibrator.vibrate(effect)
+        return
+    }
+
+    when (event) {
+        VibrationEvent.Tick -> vibrator.vibrate(tickDuration)
+        VibrationEvent.LoopComplete -> vibrator.vibrate(completePattern, -1)
+    }
 }
