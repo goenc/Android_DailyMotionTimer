@@ -80,7 +80,6 @@ class MainActivity : ComponentActivity() {
                     onLoopVibrationChanged = timerViewModel::setLoopVibrationEnabled,
                     onStart = timerViewModel::start,
                     onPause = timerViewModel::pause,
-                    onReset = timerViewModel::reset,
                 )
             }
         }
@@ -97,7 +96,6 @@ private fun WorkoutSecondTimerScreen(
     onLoopVibrationChanged: (Boolean) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
-    onReset: () -> Unit,
 ) {
     val view = LocalView.current
     val context = LocalContext.current
@@ -266,19 +264,6 @@ private fun WorkoutSecondTimerScreen(
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                             ),
-                        )
-                        TimerActionButton(
-                            label = "リセット",
-                            onClick = onReset,
-                            enabled = uiState.isRunning ||
-                                uiState.remainingSeconds != uiState.selectedSeconds ||
-                                uiState.elapsedTimeText != "00:00",
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                            ),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         )
                     }
                 }

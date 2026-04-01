@@ -1,8 +1,7 @@
-筋トレ秒タイマーのNから0までのカウント仕様を修正
+メイン画面のリセットボタン削除
 
-・表示値をN→N-1→…→0で進む境界計算エンジンを追加した
-・0表示開始時のループ完了バイブと0表示終了後のループ遷移に変更した
-・開始 一時停止 再開 リセット時の表示値と経過時間の状態遷移を修正した
-・秒数設定LazyRowが起動時と選択変更時に中央へ寄るように調整した
-・JAVA_HOMEをAndroid Studio同梱JBRに設定してapp assembleDebug成功を確認した
+・MainActivityのWorkoutSecondTimerScreen呼び出しからonReset引数を削除
+・WorkoutSecondTimerScreenの引数定義からonResetを削除
+・下部操作Rowからリセットボタンを削除し開始と一時停止のみを維持
+・デバッグビルドを実行しassembleDebug成功を確認
 
