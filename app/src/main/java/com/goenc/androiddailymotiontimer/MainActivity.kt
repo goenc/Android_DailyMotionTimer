@@ -72,10 +72,12 @@ import kotlinx.coroutines.flow.collectLatest
 class MainActivity : ComponentActivity() {
     private lateinit var timerViewModel: WorkoutSecondTimerViewModel
     private val countdownCuePlayer = CountdownCuePlayer()
+    private lateinit var countdownVoicePlayer: CountdownVoicePlayer
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         timerViewModel = ViewModelProvider(this)[WorkoutSecondTimerViewModel::class.java]
+        countdownVoicePlayer = CountdownVoicePlayer(applicationContext)
         enableEdgeToEdge()
         setContent {
             AndroidDailyMotionTimerTheme {
@@ -91,18 +93,21 @@ class MainActivity : ComponentActivity() {
                     onNormalVibrationLevelChanged = timerViewModel::setNormalVibrationLevel,
                     onCompleteVibrationLevelChanged = timerViewModel::setCompleteVibrationLevel,
                     onCountdownSoundChanged = timerViewModel::setCountdownSoundEnabled,
+                    onCountSoundModeChanged = timerViewModel::setCountSoundMode,
                     onEarlyTickVolumeChanged = timerViewModel::setEarlyTickVolume,
                     onTickVolumeChanged = timerViewModel::setTickVolume,
                     onLoopCompleteVolumeChanged = timerViewModel::setLoopCompleteVolume,
                     onStart = timerViewModel::start,
                     onPause = timerViewModel::pause,
                     countdownCuePlayer = countdownCuePlayer,
+                    countdownVoicePlayer = countdownVoicePlayer,
                 )
             }
         }
     }
 
     override fun onDestroy() {
+        countdownVoicePlayer.release()
         countdownCuePlayer.release()
         super.onDestroy()
     }
@@ -120,12 +125,14 @@ private fun WorkoutSecondTimerScreen(
     onNormalVibrationLevelChanged: (Int) -> Unit,
     onCompleteVibrationLevelChanged: (Int) -> Unit,
     onCountdownSoundChanged: (Boolean) -> Unit,
+    onCountSoundModeChanged: (CountSoundMode) -> Unit,
     onEarlyTickVolumeChanged: (Int) -> Unit,
     onTickVolumeChanged: (Int) -> Unit,
     onLoopCompleteVolumeChanged: (Int) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
     countdownCuePlayer: CountdownCuePlayer,
+    countdownVoicePlayer: CountdownVoicePlayer,
 ) {
     val view = LocalView.current
     val context = LocalContext.current
@@ -153,12 +160,18 @@ private fun WorkoutSecondTimerScreen(
         }
     }
 
-    LaunchedEffect(countdownSoundEvents, countdownCuePlayer) {
+    LaunchedEffect(countdownSoundEvents, countdownCuePlayer, countdownVoicePlayer) {
         countdownSoundEvents.collectLatest { event ->
-            when (event) {
-                CountdownSoundEvent.EarlyTick -> countdownCuePlayer.playEarlySingleCue()
-                CountdownSoundEvent.Tick -> countdownCuePlayer.playSingleCue()
-                CountdownSoundEvent.LoopComplete -> countdownCuePlayer.playDoubleCue()
+            when (latestUiState.countSoundMode) {
+                CountSoundMode.Beep -> {
+                    when (event.cueType) {
+                        CountdownCueType.EarlyTick -> countdownCuePlayer.playEarlySingleCue()
+                        CountdownCueType.Tick -> countdownCuePlayer.playSingleCue()
+                        CountdownCueType.LoopComplete -> countdownCuePlayer.playDoubleCue()
+                    }
+                }
+
+                CountSoundMode.Voice -> countdownVoicePlayer.playCount(event.displayedValue)
             }
         }
     }
@@ -174,15 +187,29 @@ private fun WorkoutSecondTimerScreen(
         countdownCuePlayer.setLoopCompleteVolume(uiState.loopCompleteVolume)
     }
 
-    DisposableEffect(countdownCuePlayer) {
+    DisposableEffect(countdownCuePlayer, countdownVoicePlayer) {
         onDispose {
+            countdownVoicePlayer.stop()
             countdownCuePlayer.stop()
         }
     }
 
     LaunchedEffect(uiState.isRunning) {
         if (!uiState.isRunning) {
+            countdownVoicePlayer.stop()
             countdownCuePlayer.stop()
+        }
+    }
+
+    LaunchedEffect(uiState.countSoundMode, uiState.countdownSoundEnabled) {
+        if (!uiState.countdownSoundEnabled || !uiState.isRunning) {
+            countdownVoicePlayer.stop()
+            countdownCuePlayer.stop()
+            return@LaunchedEffect
+        }
+        when (uiState.countSoundMode) {
+            CountSoundMode.Beep -> countdownVoicePlayer.stop()
+            CountSoundMode.Voice -> countdownCuePlayer.stop()
         }
     }
 
@@ -361,6 +388,7 @@ private fun WorkoutSecondTimerScreen(
         CountdownSoundSettingsDialog(
             uiState = uiState,
             onDismiss = { showSettingsDialog = false },
+            onCountSoundModeChanged = onCountSoundModeChanged,
             onEarlyTickVolumeChanged = onEarlyTickVolumeChanged,
             onTickVolumeChanged = onTickVolumeChanged,
             onLoopCompleteVolumeChanged = onLoopCompleteVolumeChanged,
@@ -374,6 +402,7 @@ private fun WorkoutSecondTimerScreen(
 private fun CountdownSoundSettingsDialog(
     uiState: WorkoutTimerUiState,
     onDismiss: () -> Unit,
+    onCountSoundModeChanged: (CountSoundMode) -> Unit,
     onEarlyTickVolumeChanged: (Int) -> Unit,
     onTickVolumeChanged: (Int) -> Unit,
     onLoopCompleteVolumeChanged: (Int) -> Unit,
@@ -395,6 +424,10 @@ private fun CountdownSoundSettingsDialog(
                     text = "カウント音設定",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
+                )
+                CountSoundModeSelectorRow(
+                    selectedMode = uiState.countSoundMode,
+                    onModeSelected = onCountSoundModeChanged,
                 )
                 CountdownVolumeSliderRow(
                     label = "早期ティック音量",
@@ -436,6 +469,58 @@ private fun CountdownSoundSettingsDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CountSoundModeSelectorRow(
+    selectedMode: CountSoundMode,
+    onModeSelected: (CountSoundMode) -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "カウント音種類",
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = selectedMode == CountSoundMode.Beep,
+                onClick = { onModeSelected(CountSoundMode.Beep) },
+                label = { Text("ピ音") },
+                modifier = Modifier.weight(1f),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = selectedMode == CountSoundMode.Beep,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary,
+                ),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+            )
+            FilterChip(
+                selected = selectedMode == CountSoundMode.Voice,
+                onClick = { onModeSelected(CountSoundMode.Voice) },
+                label = { Text("音声") },
+                modifier = Modifier.weight(1f),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = selectedMode == CountSoundMode.Voice,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary,
+                ),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+            )
         }
     }
 }

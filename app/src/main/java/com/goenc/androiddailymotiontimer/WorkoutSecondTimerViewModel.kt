@@ -34,6 +34,11 @@ const val MAX_VIBRATION_LEVEL = 4
 const val DEFAULT_NORMAL_VIBRATION_LEVEL = 2
 const val DEFAULT_COMPLETE_VIBRATION_LEVEL = 2
 
+enum class CountSoundMode {
+    Beep,
+    Voice,
+}
+
 data class WorkoutTimerUiState(
     val selectedSeconds: Int = DEFAULT_SECONDS,
     val remainingSeconds: Int = DEFAULT_SECONDS,
@@ -43,6 +48,7 @@ data class WorkoutTimerUiState(
     val tickVibrationEnabled: Boolean = false,
     val loopVibrationEnabled: Boolean = true,
     val countdownSoundEnabled: Boolean = true,
+    val countSoundMode: CountSoundMode = CountSoundMode.Beep,
     val earlyTickVolume: Int = DEFAULT_EARLY_TICK_VOLUME,
     val tickVolume: Int = DEFAULT_TICK_VOLUME,
     val loopCompleteVolume: Int = DEFAULT_LOOP_COMPLETE_VOLUME,
@@ -55,7 +61,12 @@ enum class VibrationEvent {
     LoopComplete,
 }
 
-enum class CountdownSoundEvent {
+data class CountdownSoundEvent(
+    val cueType: CountdownCueType,
+    val displayedValue: Int,
+)
+
+enum class CountdownCueType {
     EarlyTick,
     Tick,
     LoopComplete,
@@ -133,6 +144,11 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
 
     fun setCountdownSoundEnabled(enabled: Boolean) {
         _uiState.update { it.copy(countdownSoundEnabled = enabled) }
+        persistCurrentSettings()
+    }
+
+    fun setCountSoundMode(mode: CountSoundMode) {
+        _uiState.update { it.copy(countSoundMode = mode) }
         persistCurrentSettings()
     }
 
@@ -281,6 +297,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
                 tickVibrationEnabled = settings.tickVibrationEnabled,
                 loopVibrationEnabled = settings.loopVibrationEnabled,
                 countdownSoundEnabled = settings.countdownSoundEnabled,
+                countSoundMode = settings.countSoundMode,
                 earlyTickVolume = settings.earlyTickVolume,
                 tickVolume = settings.tickVolume,
                 loopCompleteVolume = settings.loopCompleteVolume,
@@ -312,11 +329,26 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
     private fun emitCountdownSound(displayedValue: Int, countdownSoundEnabled: Boolean) {
         if (!countdownSoundEnabled) return
         if (displayedValue == 0) {
-            _countdownSoundEvents.tryEmit(CountdownSoundEvent.LoopComplete)
+            _countdownSoundEvents.tryEmit(
+                CountdownSoundEvent(
+                    cueType = CountdownCueType.LoopComplete,
+                    displayedValue = displayedValue,
+                )
+            )
         } else if (displayedValue >= 4) {
-            _countdownSoundEvents.tryEmit(CountdownSoundEvent.EarlyTick)
+            _countdownSoundEvents.tryEmit(
+                CountdownSoundEvent(
+                    cueType = CountdownCueType.EarlyTick,
+                    displayedValue = displayedValue,
+                )
+            )
         } else if (displayedValue in 1..3) {
-            _countdownSoundEvents.tryEmit(CountdownSoundEvent.Tick)
+            _countdownSoundEvents.tryEmit(
+                CountdownSoundEvent(
+                    cueType = CountdownCueType.Tick,
+                    displayedValue = displayedValue,
+                )
+            )
         }
     }
 
@@ -330,6 +362,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
                     tickVibrationEnabled = state.tickVibrationEnabled,
                     loopVibrationEnabled = state.loopVibrationEnabled,
                     countdownSoundEnabled = state.countdownSoundEnabled,
+                    countSoundMode = state.countSoundMode,
                     earlyTickVolume = state.earlyTickVolume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME),
                     tickVolume = state.tickVolume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME),
                     loopCompleteVolume = state.loopCompleteVolume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME),
