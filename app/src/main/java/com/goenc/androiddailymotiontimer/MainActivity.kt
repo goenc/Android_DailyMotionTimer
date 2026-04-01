@@ -201,12 +201,15 @@ private fun WorkoutSecondTimerScreen(
         }
     }
 
-    LaunchedEffect(uiState.countSoundMode, uiState.countdownSoundEnabled) {
-        if (!uiState.countdownSoundEnabled || !uiState.isRunning) {
+    LaunchedEffect(uiState.countdownSoundEnabled) {
+        if (!uiState.countdownSoundEnabled) {
             countdownVoicePlayer.stop()
             countdownCuePlayer.stop()
-            return@LaunchedEffect
         }
+    }
+
+    LaunchedEffect(uiState.countSoundMode) {
+        if (!uiState.countdownSoundEnabled) return@LaunchedEffect
         when (uiState.countSoundMode) {
             CountSoundMode.Beep -> countdownVoicePlayer.stop()
             CountSoundMode.Voice -> countdownCuePlayer.stop()
