@@ -302,6 +302,9 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
 
     private fun emitInitialDisplayCueIfNeeded(state: WorkoutTimerUiState, displayedValue: Int) {
         if (hasPlayedInitialDisplayCue || displayedValue == 0) return
+        if (state.tickVibrationEnabled) {
+            _vibrationEvents.tryEmit(VibrationEvent.Tick)
+        }
         emitCountdownSound(displayedValue, state.countdownSoundEnabled)
         hasPlayedInitialDisplayCue = true
     }
