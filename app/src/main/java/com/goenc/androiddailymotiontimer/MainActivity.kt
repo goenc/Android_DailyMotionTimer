@@ -171,7 +171,10 @@ private fun WorkoutSecondTimerScreen(
                     }
                 }
 
-                CountSoundMode.Voice -> countdownVoicePlayer.playCount(event.displayedValue)
+                CountSoundMode.Voice -> countdownVoicePlayer.playCount(
+                    count = event.displayedValue,
+                    cueType = event.cueType,
+                )
             }
         }
     }
@@ -185,6 +188,9 @@ private fun WorkoutSecondTimerScreen(
         countdownCuePlayer.setEarlyTickVolume(uiState.earlyTickVolume)
         countdownCuePlayer.setTickVolume(uiState.tickVolume)
         countdownCuePlayer.setLoopCompleteVolume(uiState.loopCompleteVolume)
+        countdownVoicePlayer.setEarlyTickVolume(uiState.earlyTickVolume)
+        countdownVoicePlayer.setTickVolume(uiState.tickVolume)
+        countdownVoicePlayer.setLoopCompleteVolume(uiState.loopCompleteVolume)
     }
 
     DisposableEffect(countdownCuePlayer, countdownVoicePlayer) {
@@ -209,11 +215,8 @@ private fun WorkoutSecondTimerScreen(
     }
 
     LaunchedEffect(uiState.countSoundMode) {
-        if (!uiState.countdownSoundEnabled) return@LaunchedEffect
-        when (uiState.countSoundMode) {
-            CountSoundMode.Beep -> countdownVoicePlayer.stop()
-            CountSoundMode.Voice -> countdownCuePlayer.stop()
-        }
+        countdownVoicePlayer.stop()
+        countdownCuePlayer.stop()
     }
 
     Surface(

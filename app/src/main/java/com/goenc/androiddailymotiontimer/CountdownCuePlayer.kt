@@ -17,16 +17,19 @@ class CountdownCuePlayer {
 
     fun playEarlySingleCue() {
         stop()
+        if (earlyTickVolume == MIN_CUE_VOLUME) return
         earlyToneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, SINGLE_TONE_DURATION_MS)
     }
 
     fun playSingleCue() {
         stop()
+        if (tickVolume == MIN_CUE_VOLUME) return
         tickToneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, SINGLE_TONE_DURATION_MS)
     }
 
     fun playDoubleCue() {
         stop()
+        if (loopCompleteVolume == MIN_CUE_VOLUME) return
         startTone(loopCompleteToneGenerator, DOUBLE_TONE_DURATION_MS, 0L)
         startTone(loopCompleteToneGenerator, DOUBLE_TONE_DURATION_MS, DOUBLE_TONE_DELAY_MS)
     }
@@ -86,7 +89,7 @@ class CountdownCuePlayer {
     }
 
     private fun createToneGenerator(volume: Int): ToneGenerator {
-        return ToneGenerator(AudioManager.STREAM_ALARM, volume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME))
+        return ToneGenerator(AudioManager.STREAM_MUSIC, volume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME))
     }
 
     private companion object {

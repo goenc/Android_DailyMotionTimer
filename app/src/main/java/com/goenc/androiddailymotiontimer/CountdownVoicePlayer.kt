@@ -12,25 +12,28 @@ class CountdownVoicePlayer(context: Context) {
         .setMaxStreams(1)
         .setAudioAttributes(
             AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setLegacyStreamType(AudioManager.STREAM_ALARM)
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .setLegacyStreamType(AudioManager.STREAM_MUSIC)
                 .build()
         )
         .build()
     private val soundIds = mutableMapOf<Int, Int>()
     private val loadedSoundIds = mutableSetOf<Int>()
     private var activeStreamId: Int? = null
-    private var pendingCount: Int? = null
+    private var pendingPlayback: PendingPlayback? = null
+    private var earlyTickVolume = DEFAULT_EARLY_TICK_VOLUME
+    private var tickVolume = DEFAULT_TICK_VOLUME
+    private var loopCompleteVolume = DEFAULT_LOOP_COMPLETE_VOLUME
 
     init {
         soundPool.setOnLoadCompleteListener { _, soundId, status ->
             if (status != 0) return@setOnLoadCompleteListener
             loadedSoundIds += soundId
-            val queuedCount = pendingCount ?: return@setOnLoadCompleteListener
-            if (soundIds[queuedCount] == soundId) {
-                pendingCount = null
-                playLoadedSound(soundId)
+            val queuedPlayback = pendingPlayback ?: return@setOnLoadCompleteListener
+            if (soundIds[queuedPlayback.count] == soundId) {
+                pendingPlayback = null
+                playLoadedSound(soundId, queuedPlayback.cueType)
             }
         }
         COUNT_RESOURCE_IDS.forEach { (count, resId) ->
@@ -38,19 +41,31 @@ class CountdownVoicePlayer(context: Context) {
         }
     }
 
-    fun playCount(count: Int) {
+    fun playCount(count: Int, cueType: CountdownCueType) {
         val soundId = soundIds[count] ?: return
         if (loadedSoundIds.contains(soundId)) {
-            pendingCount = null
-            playLoadedSound(soundId)
+            pendingPlayback = null
+            playLoadedSound(soundId, cueType)
         } else {
             stopActivePlayback()
-            pendingCount = count
+            pendingPlayback = PendingPlayback(count = count, cueType = cueType)
         }
     }
 
+    fun setEarlyTickVolume(value: Int) {
+        earlyTickVolume = value.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME)
+    }
+
+    fun setTickVolume(value: Int) {
+        tickVolume = value.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME)
+    }
+
+    fun setLoopCompleteVolume(value: Int) {
+        loopCompleteVolume = value.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME)
+    }
+
     fun stop() {
-        pendingCount = null
+        pendingPlayback = null
         stopActivePlayback()
     }
 
@@ -64,15 +79,26 @@ class CountdownVoicePlayer(context: Context) {
         activeStreamId = null
     }
 
-    private fun playLoadedSound(soundId: Int) {
+    private fun playLoadedSound(soundId: Int, cueType: CountdownCueType) {
         stopActivePlayback()
-        val streamId = soundPool.play(soundId, 1f, 1f, 1, 0, 1f)
+        val volume = resolveVolume(cueType)
+        if (volume <= 0f) return
+        val streamId = soundPool.play(soundId, volume, volume, 1, 0, 1f)
         if (streamId == 0) {
             Log.w(TAG, "Failed to play countdown voice for soundId=$soundId")
             activeStreamId = null
             return
         }
         activeStreamId = streamId
+    }
+
+    private fun resolveVolume(cueType: CountdownCueType): Float {
+        val volume = when (cueType) {
+            CountdownCueType.EarlyTick -> earlyTickVolume
+            CountdownCueType.Tick -> tickVolume
+            CountdownCueType.LoopComplete -> loopCompleteVolume
+        }
+        return volume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME) / MAX_CUE_VOLUME.toFloat()
     }
 
     private companion object {
@@ -91,4 +117,9 @@ class CountdownVoicePlayer(context: Context) {
             0 to R.raw.count_0,
         )
     }
+
+    private data class PendingPlayback(
+        val count: Int,
+        val cueType: CountdownCueType,
+    )
 }
