@@ -42,6 +42,7 @@ enum class VibrationEvent {
 }
 
 enum class CountdownSoundEvent {
+    EarlyTick,
     Tick,
     LoopComplete,
 }
@@ -239,6 +240,8 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
         if (!state.countdownSoundEnabled) return
         if (displayedValue == 0) {
             _countdownSoundEvents.tryEmit(CountdownSoundEvent.LoopComplete)
+        } else if (displayedValue >= 4) {
+            _countdownSoundEvents.tryEmit(CountdownSoundEvent.EarlyTick)
         } else if (displayedValue in 1..3) {
             _countdownSoundEvents.tryEmit(CountdownSoundEvent.Tick)
         }

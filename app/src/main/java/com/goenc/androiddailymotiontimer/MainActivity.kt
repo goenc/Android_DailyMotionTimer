@@ -131,6 +131,7 @@ private fun WorkoutSecondTimerScreen(
     LaunchedEffect(countdownSoundEvents, countdownCuePlayer) {
         countdownSoundEvents.collectLatest { event ->
             when (event) {
+                CountdownSoundEvent.EarlyTick -> countdownCuePlayer.playEarlySingleCue()
                 CountdownSoundEvent.Tick -> countdownCuePlayer.playSingleCue()
                 CountdownSoundEvent.LoopComplete -> countdownCuePlayer.playDoubleCue()
             }

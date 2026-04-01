@@ -8,7 +8,13 @@ import android.os.Looper
 class CountdownCuePlayer {
     private val handler = Handler(Looper.getMainLooper())
     private val toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, TONE_VOLUME)
+    private val earlyToneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, EARLY_TONE_VOLUME)
     private val pendingStops = mutableListOf<Runnable>()
+
+    fun playEarlySingleCue() {
+        stop()
+        earlyToneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, SINGLE_TONE_DURATION_MS)
+    }
 
     fun playSingleCue() {
         stop()
@@ -25,11 +31,13 @@ class CountdownCuePlayer {
         pendingStops.forEach(handler::removeCallbacks)
         pendingStops.clear()
         toneGenerator.stopTone()
+        earlyToneGenerator.stopTone()
     }
 
     fun release() {
         stop()
         toneGenerator.release()
+        earlyToneGenerator.release()
     }
 
     private fun startTone(durationMs: Int, delayMs: Long) {
@@ -46,6 +54,7 @@ class CountdownCuePlayer {
 
     private companion object {
         private const val TONE_VOLUME = 80
+        private const val EARLY_TONE_VOLUME = 35
         private const val SINGLE_TONE_DURATION_MS = 120
         private const val DOUBLE_TONE_DURATION_MS = 90
         private const val DOUBLE_TONE_DELAY_MS = 150L
