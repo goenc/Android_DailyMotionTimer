@@ -14,6 +14,7 @@ data class WorkoutTimerSettings(
     val loopEnabled: Boolean = false,
     val tickVibrationEnabled: Boolean = false,
     val loopVibrationEnabled: Boolean = true,
+    val countdownSoundEnabled: Boolean = true,
 )
 
 class WorkoutSettingsStore(context: Context) {
@@ -28,6 +29,7 @@ class WorkoutSettingsStore(context: Context) {
             loopEnabled = preferences[LOOP_ENABLED_KEY] ?: false,
             tickVibrationEnabled = preferences[TICK_VIBRATION_ENABLED_KEY] ?: false,
             loopVibrationEnabled = preferences[LOOP_VIBRATION_ENABLED_KEY] ?: true,
+            countdownSoundEnabled = preferences[COUNTDOWN_SOUND_ENABLED_KEY] ?: true,
         )
     }
 
@@ -37,6 +39,7 @@ class WorkoutSettingsStore(context: Context) {
             preferences[LOOP_ENABLED_KEY] = settings.loopEnabled
             preferences[TICK_VIBRATION_ENABLED_KEY] = settings.tickVibrationEnabled
             preferences[LOOP_VIBRATION_ENABLED_KEY] = settings.loopVibrationEnabled
+            preferences[COUNTDOWN_SOUND_ENABLED_KEY] = settings.countdownSoundEnabled
         }
     }
 
@@ -47,5 +50,6 @@ class WorkoutSettingsStore(context: Context) {
         private val LOOP_ENABLED_KEY = booleanPreferencesKey("loop_enabled")
         private val TICK_VIBRATION_ENABLED_KEY = booleanPreferencesKey("tick_vibration_enabled")
         private val LOOP_VIBRATION_ENABLED_KEY = booleanPreferencesKey("loop_vibration_enabled")
+        private val COUNTDOWN_SOUND_ENABLED_KEY = booleanPreferencesKey("countdown_sound_enabled")
     }
 }

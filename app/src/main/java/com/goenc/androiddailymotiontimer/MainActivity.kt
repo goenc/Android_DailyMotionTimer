@@ -63,6 +63,7 @@ import kotlinx.coroutines.flow.collectLatest
 
 class MainActivity : ComponentActivity() {
     private lateinit var timerViewModel: WorkoutSecondTimerViewModel
+    private val countdownCuePlayer = CountdownCuePlayer()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,15 +75,23 @@ class MainActivity : ComponentActivity() {
                 WorkoutSecondTimerScreen(
                     uiState = uiState,
                     vibrationEvents = timerViewModel.vibrationEvents,
+                    countdownSoundEvents = timerViewModel.countdownSoundEvents,
                     onSecondSelected = timerViewModel::setSelectedSeconds,
                     onLoopChanged = timerViewModel::setLoopEnabled,
                     onTickVibrationChanged = timerViewModel::setTickVibrationEnabled,
                     onLoopVibrationChanged = timerViewModel::setLoopVibrationEnabled,
+                    onCountdownSoundChanged = timerViewModel::setCountdownSoundEnabled,
                     onStart = timerViewModel::start,
                     onPause = timerViewModel::pause,
+                    countdownCuePlayer = countdownCuePlayer,
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        countdownCuePlayer.release()
+        super.onDestroy()
     }
 }
 
@@ -90,12 +99,15 @@ class MainActivity : ComponentActivity() {
 private fun WorkoutSecondTimerScreen(
     uiState: WorkoutTimerUiState,
     vibrationEvents: SharedFlow<VibrationEvent>,
+    countdownSoundEvents: SharedFlow<CountdownSoundEvent>,
     onSecondSelected: (Int) -> Unit,
     onLoopChanged: (Boolean) -> Unit,
     onTickVibrationChanged: (Boolean) -> Unit,
     onLoopVibrationChanged: (Boolean) -> Unit,
+    onCountdownSoundChanged: (Boolean) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
+    countdownCuePlayer: CountdownCuePlayer,
 ) {
     val view = LocalView.current
     val context = LocalContext.current
@@ -113,6 +125,27 @@ private fun WorkoutSecondTimerScreen(
     LaunchedEffect(vibrationEvents, context) {
         vibrationEvents.collectLatest { event ->
             vibrate(context, event)
+        }
+    }
+
+    LaunchedEffect(countdownSoundEvents, countdownCuePlayer) {
+        countdownSoundEvents.collectLatest { event ->
+            when (event) {
+                CountdownSoundEvent.Tick -> countdownCuePlayer.playSingleCue()
+                CountdownSoundEvent.LoopComplete -> countdownCuePlayer.playDoubleCue()
+            }
+        }
+    }
+
+    DisposableEffect(countdownCuePlayer) {
+        onDispose {
+            countdownCuePlayer.stop()
+        }
+    }
+
+    LaunchedEffect(uiState.isRunning) {
+        if (!uiState.isRunning) {
+            countdownCuePlayer.stop()
         }
     }
 
@@ -241,6 +274,11 @@ private fun WorkoutSecondTimerScreen(
                         label = "ループ完了バイブ",
                         checked = uiState.loopVibrationEnabled,
                         onCheckedChange = onLoopVibrationChanged,
+                    )
+                    TimerToggleRow(
+                        label = "カウント音",
+                        checked = uiState.countdownSoundEnabled,
+                        onCheckedChange = onCountdownSoundChanged,
                     )
 
                     Spacer(modifier = Modifier.height(2.dp))

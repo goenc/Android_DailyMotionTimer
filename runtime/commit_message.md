@@ -1,7 +1,5 @@
-メイン画面のリセットボタン削除
+カウント音設定と終了直前の効果音を追加
 
-・MainActivityのWorkoutSecondTimerScreen呼び出しからonReset引数を削除
-・WorkoutSecondTimerScreenの引数定義からonResetを削除
-・下部操作Rowからリセットボタンを削除し開始と一時停止のみを維持
-・デバッグビルドを実行しassembleDebug成功を確認
-
+・残り3秒から1秒で単発音、0秒切替時に二連音を出すカウント音イベントと再生処理を追加
+・カウント音の設定保存とメイン画面の切り替えスイッチを追加
+・JAVA_HOME を設定した上で assembleDebug の成功を確認

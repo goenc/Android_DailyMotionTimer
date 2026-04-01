@@ -33,9 +33,15 @@ data class WorkoutTimerUiState(
     val loopEnabled: Boolean = false,
     val tickVibrationEnabled: Boolean = false,
     val loopVibrationEnabled: Boolean = true,
+    val countdownSoundEnabled: Boolean = true,
 )
 
 enum class VibrationEvent {
+    Tick,
+    LoopComplete,
+}
+
+enum class CountdownSoundEvent {
     Tick,
     LoopComplete,
 }
@@ -48,6 +54,8 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
 
     private val _vibrationEvents = MutableSharedFlow<VibrationEvent>(extraBufferCapacity = 8)
     val vibrationEvents: SharedFlow<VibrationEvent> = _vibrationEvents.asSharedFlow()
+    private val _countdownSoundEvents = MutableSharedFlow<CountdownSoundEvent>(extraBufferCapacity = 8)
+    val countdownSoundEvents: SharedFlow<CountdownSoundEvent> = _countdownSoundEvents.asSharedFlow()
 
     private var timerJob: Job? = null
     private var accumulatedElapsedMs: Long = 0L
@@ -88,6 +96,11 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
 
     fun setLoopVibrationEnabled(enabled: Boolean) {
         _uiState.update { it.copy(loopVibrationEnabled = enabled) }
+        persistCurrentSettings()
+    }
+
+    fun setCountdownSoundEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(countdownSoundEnabled = enabled) }
         persistCurrentSettings()
     }
 
@@ -154,7 +167,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
             when {
                 nextBoundaryElapsedMs != null && totalElapsedMs >= nextBoundaryElapsedMs -> {
                     displayedRemainingSeconds = engine.displayValueForBoundary(nextBoundaryIndex)
-                    emitCountSwitchVibration(state, displayedRemainingSeconds)
+                    emitCountSwitchEffects(state, displayedRemainingSeconds)
                     nextBoundaryIndex += 1
                 }
 
@@ -211,17 +224,23 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
                 loopEnabled = settings.loopEnabled,
                 tickVibrationEnabled = settings.tickVibrationEnabled,
                 loopVibrationEnabled = settings.loopVibrationEnabled,
+                countdownSoundEnabled = settings.countdownSoundEnabled,
             )
         }
     }
 
-    private fun emitCountSwitchVibration(state: WorkoutTimerUiState, displayedValue: Int) {
+    private fun emitCountSwitchEffects(state: WorkoutTimerUiState, displayedValue: Int) {
         if (displayedValue == 0 && state.loopVibrationEnabled) {
             _vibrationEvents.tryEmit(VibrationEvent.LoopComplete)
-            return
-        }
-        if (state.tickVibrationEnabled) {
+        } else if (state.tickVibrationEnabled) {
             _vibrationEvents.tryEmit(VibrationEvent.Tick)
+        }
+
+        if (!state.countdownSoundEnabled) return
+        if (displayedValue == 0) {
+            _countdownSoundEvents.tryEmit(CountdownSoundEvent.LoopComplete)
+        } else if (displayedValue in 1..3) {
+            _countdownSoundEvents.tryEmit(CountdownSoundEvent.Tick)
         }
     }
 
@@ -234,6 +253,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
                     loopEnabled = state.loopEnabled,
                     tickVibrationEnabled = state.tickVibrationEnabled,
                     loopVibrationEnabled = state.loopVibrationEnabled,
+                    countdownSoundEnabled = state.countdownSoundEnabled,
                 )
             )
         }
