@@ -54,7 +54,7 @@ class CountdownCuePlayer {
 
     private companion object {
         private const val TONE_VOLUME = 80
-        private const val EARLY_TONE_VOLUME = 35
+        private const val EARLY_TONE_VOLUME = 45
         private const val SINGLE_TONE_DURATION_MS = 120
         private const val DOUBLE_TONE_DURATION_MS = 90
         private const val DOUBLE_TONE_DELAY_MS = 150L

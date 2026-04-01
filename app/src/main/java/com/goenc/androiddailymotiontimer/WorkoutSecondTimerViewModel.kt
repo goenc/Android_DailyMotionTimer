@@ -64,6 +64,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
     private var currentLoopStartedAtElapsedMs: Long = 0L
     private var nextBoundaryIndex: Int = 1
     private var displayedRemainingSeconds: Int = DEFAULT_SECONDS
+    private var hasPlayedInitialDisplayCue: Boolean = false
 
     init {
         scope.launch {
@@ -120,6 +121,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
         }
         runStartedAtMs = SystemClock.elapsedRealtime()
         _uiState.update { it.copy(isRunning = true, remainingSeconds = displayedRemainingSeconds) }
+        emitInitialDisplayCueIfNeeded(state, displayedRemainingSeconds)
         timerJob?.cancel()
         timerJob = scope.launch {
             while (isActive) {
@@ -176,6 +178,8 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
                     currentLoopStartedAtElapsedMs += engine.totalDurationMs
                     displayedRemainingSeconds = engine.initialDisplayValue()
                     nextBoundaryIndex = 1
+                    hasPlayedInitialDisplayCue = false
+                    emitInitialDisplayCueIfNeeded(state, displayedRemainingSeconds)
                 }
 
                 loopFinished -> {
@@ -237,7 +241,17 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
             _vibrationEvents.tryEmit(VibrationEvent.Tick)
         }
 
-        if (!state.countdownSoundEnabled) return
+        emitCountdownSound(displayedValue, state.countdownSoundEnabled)
+    }
+
+    private fun emitInitialDisplayCueIfNeeded(state: WorkoutTimerUiState, displayedValue: Int) {
+        if (hasPlayedInitialDisplayCue || displayedValue == 0) return
+        emitCountdownSound(displayedValue, state.countdownSoundEnabled)
+        hasPlayedInitialDisplayCue = true
+    }
+
+    private fun emitCountdownSound(displayedValue: Int, countdownSoundEnabled: Boolean) {
+        if (!countdownSoundEnabled) return
         if (displayedValue == 0) {
             _countdownSoundEvents.tryEmit(CountdownSoundEvent.LoopComplete)
         } else if (displayedValue >= 4) {
@@ -274,6 +288,7 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
         currentLoopStartedAtElapsedMs = 0L
         nextBoundaryIndex = 1
         displayedRemainingSeconds = WorkoutTimerEngine(selectedSeconds).initialDisplayValue()
+        hasPlayedInitialDisplayCue = false
     }
 
     private fun nextBoundaryElapsedMs(engine: WorkoutTimerEngine): Long? {
