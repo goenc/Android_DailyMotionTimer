@@ -1,6 +1,6 @@
-音声モードのカウント再生経路を修正
+音声カウント素材を自然な長さに調整
 
-・CountdownVoicePlayer の AudioAttributes をアラーム系出力に合わせて既存 raw 音声の再生経路を修正
-・SoundPool 再生前後の停止処理を整理し 再生失敗時のみ最小限の警告ログを残すよう修正
-・MainActivity の停止条件を見直し カウント音無効時とモード切替時のみ停止するよう修正
-・JAVA_HOME を一時設定したうえで assembleDebug の成功を確認
+・count_10 から count_0 の音声素材を日本語カウント音声として再生成し16kHz mono wavへ統一
+・各素材の先頭と末尾に短い無音を加えて全体長を約340msから560msに調整
+・count_7とcount_3とcount_0を含む全11素材の長さと形式を確認
+・JAVA_HOMEを補って assembleDebug の成功を確認
