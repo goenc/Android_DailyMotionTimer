@@ -24,6 +24,11 @@ import kotlin.math.max
 const val DEFAULT_SECONDS = 5
 const val MIN_SECONDS = 1
 const val MAX_SECONDS = 10
+const val MIN_CUE_VOLUME = 0
+const val MAX_CUE_VOLUME = 100
+const val DEFAULT_EARLY_TICK_VOLUME = 45
+const val DEFAULT_TICK_VOLUME = 80
+const val DEFAULT_LOOP_COMPLETE_VOLUME = 80
 
 data class WorkoutTimerUiState(
     val selectedSeconds: Int = DEFAULT_SECONDS,
@@ -34,6 +39,9 @@ data class WorkoutTimerUiState(
     val tickVibrationEnabled: Boolean = false,
     val loopVibrationEnabled: Boolean = true,
     val countdownSoundEnabled: Boolean = true,
+    val earlyTickVolume: Int = DEFAULT_EARLY_TICK_VOLUME,
+    val tickVolume: Int = DEFAULT_TICK_VOLUME,
+    val loopCompleteVolume: Int = DEFAULT_LOOP_COMPLETE_VOLUME,
 )
 
 enum class VibrationEvent {
@@ -103,6 +111,27 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
 
     fun setCountdownSoundEnabled(enabled: Boolean) {
         _uiState.update { it.copy(countdownSoundEnabled = enabled) }
+        persistCurrentSettings()
+    }
+
+    fun setEarlyTickVolume(value: Int) {
+        _uiState.update {
+            it.copy(earlyTickVolume = value.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME))
+        }
+        persistCurrentSettings()
+    }
+
+    fun setTickVolume(value: Int) {
+        _uiState.update {
+            it.copy(tickVolume = value.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME))
+        }
+        persistCurrentSettings()
+    }
+
+    fun setLoopCompleteVolume(value: Int) {
+        _uiState.update {
+            it.copy(loopCompleteVolume = value.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME))
+        }
         persistCurrentSettings()
     }
 
@@ -230,6 +259,9 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
                 tickVibrationEnabled = settings.tickVibrationEnabled,
                 loopVibrationEnabled = settings.loopVibrationEnabled,
                 countdownSoundEnabled = settings.countdownSoundEnabled,
+                earlyTickVolume = settings.earlyTickVolume,
+                tickVolume = settings.tickVolume,
+                loopCompleteVolume = settings.loopCompleteVolume,
             )
         }
     }
@@ -271,6 +303,9 @@ class WorkoutSecondTimerViewModel(application: Application) : AndroidViewModel(a
                     tickVibrationEnabled = state.tickVibrationEnabled,
                     loopVibrationEnabled = state.loopVibrationEnabled,
                     countdownSoundEnabled = state.countdownSoundEnabled,
+                    earlyTickVolume = state.earlyTickVolume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME),
+                    tickVolume = state.tickVolume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME),
+                    loopCompleteVolume = state.loopCompleteVolume.coerceIn(MIN_CUE_VOLUME, MAX_CUE_VOLUME),
                 )
             )
         }

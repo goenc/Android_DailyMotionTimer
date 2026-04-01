@@ -30,14 +30,20 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -56,6 +62,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.ViewModelProvider
 import com.goenc.androiddailymotiontimer.ui.theme.AndroidDailyMotionTimerTheme
 import kotlinx.coroutines.flow.SharedFlow
@@ -81,6 +88,9 @@ class MainActivity : ComponentActivity() {
                     onTickVibrationChanged = timerViewModel::setTickVibrationEnabled,
                     onLoopVibrationChanged = timerViewModel::setLoopVibrationEnabled,
                     onCountdownSoundChanged = timerViewModel::setCountdownSoundEnabled,
+                    onEarlyTickVolumeChanged = timerViewModel::setEarlyTickVolume,
+                    onTickVolumeChanged = timerViewModel::setTickVolume,
+                    onLoopCompleteVolumeChanged = timerViewModel::setLoopCompleteVolume,
                     onStart = timerViewModel::start,
                     onPause = timerViewModel::pause,
                     countdownCuePlayer = countdownCuePlayer,
@@ -105,6 +115,9 @@ private fun WorkoutSecondTimerScreen(
     onTickVibrationChanged: (Boolean) -> Unit,
     onLoopVibrationChanged: (Boolean) -> Unit,
     onCountdownSoundChanged: (Boolean) -> Unit,
+    onEarlyTickVolumeChanged: (Int) -> Unit,
+    onTickVolumeChanged: (Int) -> Unit,
+    onLoopCompleteVolumeChanged: (Int) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
     countdownCuePlayer: CountdownCuePlayer,
@@ -114,6 +127,7 @@ private fun WorkoutSecondTimerScreen(
     val secondOptions = (MIN_SECONDS..MAX_SECONDS).toList()
     val secondListState = rememberLazyListState()
     var hasCenteredInitialSelection by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
     DisposableEffect(view, uiState.isRunning) {
         view.keepScreenOn = uiState.isRunning
@@ -136,6 +150,17 @@ private fun WorkoutSecondTimerScreen(
                 CountdownSoundEvent.LoopComplete -> countdownCuePlayer.playDoubleCue()
             }
         }
+    }
+
+    LaunchedEffect(
+        countdownCuePlayer,
+        uiState.earlyTickVolume,
+        uiState.tickVolume,
+        uiState.loopCompleteVolume,
+    ) {
+        countdownCuePlayer.setEarlyTickVolume(uiState.earlyTickVolume)
+        countdownCuePlayer.setTickVolume(uiState.tickVolume)
+        countdownCuePlayer.setLoopCompleteVolume(uiState.loopCompleteVolume)
     }
 
     DisposableEffect(countdownCuePlayer) {
@@ -194,18 +219,29 @@ private fun WorkoutSecondTimerScreen(
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(
-                        text = "筋トレ秒",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "筋トレ秒",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = { showSettingsDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = "カウント音設定",
+                            )
+                        }
+                    }
                     Text(
                         text = "累計経過 ${uiState.elapsedTimeText}",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
                     )
                 }
 
@@ -308,6 +344,101 @@ private fun WorkoutSecondTimerScreen(
                 }
             }
         }
+    }
+
+    if (showSettingsDialog) {
+        CountdownSoundSettingsDialog(
+            uiState = uiState,
+            onDismiss = { showSettingsDialog = false },
+            onEarlyTickVolumeChanged = onEarlyTickVolumeChanged,
+            onTickVolumeChanged = onTickVolumeChanged,
+            onLoopCompleteVolumeChanged = onLoopCompleteVolumeChanged,
+        )
+    }
+}
+
+@Composable
+private fun CountdownSoundSettingsDialog(
+    uiState: WorkoutTimerUiState,
+    onDismiss: () -> Unit,
+    onEarlyTickVolumeChanged: (Int) -> Unit,
+    onTickVolumeChanged: (Int) -> Unit,
+    onLoopCompleteVolumeChanged: (Int) -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            tonalElevation = 6.dp,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "カウント音設定",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                CountdownVolumeSliderRow(
+                    label = "早期ティック音量",
+                    value = uiState.earlyTickVolume,
+                    onValueChanged = onEarlyTickVolumeChanged,
+                )
+                CountdownVolumeSliderRow(
+                    label = "通常ティック音量",
+                    value = uiState.tickVolume,
+                    onValueChanged = onTickVolumeChanged,
+                )
+                CountdownVolumeSliderRow(
+                    label = "完了音量",
+                    value = uiState.loopCompleteVolume,
+                    onValueChanged = onLoopCompleteVolumeChanged,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("閉じる")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CountdownVolumeSliderRow(
+    label: String,
+    value: Int,
+    onValueChanged: (Int) -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = value.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChanged(it.toInt()) },
+            valueRange = MIN_CUE_VOLUME.toFloat()..MAX_CUE_VOLUME.toFloat(),
+            steps = MAX_CUE_VOLUME - MIN_CUE_VOLUME - 1,
+        )
     }
 }
 

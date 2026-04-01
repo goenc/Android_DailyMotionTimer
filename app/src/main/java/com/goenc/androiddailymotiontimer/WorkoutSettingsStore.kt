@@ -15,6 +15,9 @@ data class WorkoutTimerSettings(
     val tickVibrationEnabled: Boolean = false,
     val loopVibrationEnabled: Boolean = true,
     val countdownSoundEnabled: Boolean = true,
+    val earlyTickVolume: Int = DEFAULT_EARLY_TICK_VOLUME,
+    val tickVolume: Int = DEFAULT_TICK_VOLUME,
+    val loopCompleteVolume: Int = DEFAULT_LOOP_COMPLETE_VOLUME,
 )
 
 class WorkoutSettingsStore(context: Context) {
@@ -30,6 +33,12 @@ class WorkoutSettingsStore(context: Context) {
             tickVibrationEnabled = preferences[TICK_VIBRATION_ENABLED_KEY] ?: false,
             loopVibrationEnabled = preferences[LOOP_VIBRATION_ENABLED_KEY] ?: true,
             countdownSoundEnabled = preferences[COUNTDOWN_SOUND_ENABLED_KEY] ?: true,
+            earlyTickVolume = (preferences[EARLY_TICK_VOLUME_KEY] ?: DEFAULT_EARLY_TICK_VOLUME)
+                .coerceIn(MIN_VOLUME, MAX_VOLUME),
+            tickVolume = (preferences[TICK_VOLUME_KEY] ?: DEFAULT_TICK_VOLUME)
+                .coerceIn(MIN_VOLUME, MAX_VOLUME),
+            loopCompleteVolume = (preferences[LOOP_COMPLETE_VOLUME_KEY] ?: DEFAULT_LOOP_COMPLETE_VOLUME)
+                .coerceIn(MIN_VOLUME, MAX_VOLUME),
         )
     }
 
@@ -40,16 +49,25 @@ class WorkoutSettingsStore(context: Context) {
             preferences[TICK_VIBRATION_ENABLED_KEY] = settings.tickVibrationEnabled
             preferences[LOOP_VIBRATION_ENABLED_KEY] = settings.loopVibrationEnabled
             preferences[COUNTDOWN_SOUND_ENABLED_KEY] = settings.countdownSoundEnabled
+            preferences[EARLY_TICK_VOLUME_KEY] = settings.earlyTickVolume.coerceIn(MIN_VOLUME, MAX_VOLUME)
+            preferences[TICK_VOLUME_KEY] = settings.tickVolume.coerceIn(MIN_VOLUME, MAX_VOLUME)
+            preferences[LOOP_COMPLETE_VOLUME_KEY] =
+                settings.loopCompleteVolume.coerceIn(MIN_VOLUME, MAX_VOLUME)
         }
     }
 
     private companion object {
         private const val DATA_STORE_NAME = "workout_timer_settings"
+        private const val MIN_VOLUME = 0
+        private const val MAX_VOLUME = 100
 
         private val SELECTED_SECONDS_KEY = intPreferencesKey("selected_seconds")
         private val LOOP_ENABLED_KEY = booleanPreferencesKey("loop_enabled")
         private val TICK_VIBRATION_ENABLED_KEY = booleanPreferencesKey("tick_vibration_enabled")
         private val LOOP_VIBRATION_ENABLED_KEY = booleanPreferencesKey("loop_vibration_enabled")
         private val COUNTDOWN_SOUND_ENABLED_KEY = booleanPreferencesKey("countdown_sound_enabled")
+        private val EARLY_TICK_VOLUME_KEY = intPreferencesKey("early_tick_volume")
+        private val TICK_VOLUME_KEY = intPreferencesKey("tick_volume")
+        private val LOOP_COMPLETE_VOLUME_KEY = intPreferencesKey("loop_complete_volume")
     }
 }
