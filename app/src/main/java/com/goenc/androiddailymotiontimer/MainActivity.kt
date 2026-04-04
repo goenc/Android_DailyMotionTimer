@@ -260,10 +260,10 @@ private fun WorkoutSecondTimerScreen(
             } else {
                 MaterialTheme.colorScheme.primary
             }
-            val primaryButtonLabel = if (uiState.primaryButtonShowsStart) {
-                stringResource(R.string.timer_action_start)
-            } else {
-                stringResource(R.string.timer_action_reset)
+            val primaryButtonLabel = when {
+                uiState.primaryButtonShowsStart -> stringResource(R.string.timer_action_start)
+                uiState.primaryButtonShowsStop -> stringResource(R.string.timer_action_stop)
+                else -> stringResource(R.string.timer_action_reset)
             }
             val secondaryButtonLabel = if (uiState.canResume) {
                 stringResource(R.string.timer_action_resume)

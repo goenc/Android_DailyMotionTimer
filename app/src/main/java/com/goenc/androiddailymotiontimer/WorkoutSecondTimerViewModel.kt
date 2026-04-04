@@ -112,10 +112,17 @@ data class WorkoutTimerUiState(
             sessionStatus == TimerSessionStatus.ActivePaused
 
     val canChangeSeconds: Boolean
-        get() = sessionStatus == TimerSessionStatus.Idle || sessionStatus == TimerSessionStatus.Completed
+        get() = sessionStatus == TimerSessionStatus.Idle ||
+            sessionStatus == TimerSessionStatus.Completed ||
+            sessionStatus == TimerSessionStatus.PreparingPaused ||
+            sessionStatus == TimerSessionStatus.ActivePaused
 
     val primaryButtonShowsStart: Boolean
         get() = sessionStatus == TimerSessionStatus.Idle || sessionStatus == TimerSessionStatus.Completed
+
+    val primaryButtonShowsStop: Boolean
+        get() = sessionStatus == TimerSessionStatus.PreparingPaused ||
+            sessionStatus == TimerSessionStatus.ActivePaused
 
     val secondaryButtonEnabled: Boolean
         get() = sessionStatus.isRunning || sessionStatus.isPaused
@@ -247,10 +254,10 @@ class WorkoutSecondTimerViewModel(
     }
 
     fun onPrimaryAction() {
-        if (_uiState.value.primaryButtonShowsStart) {
-            start()
-        } else {
-            resetWithPreparation()
+        when {
+            _uiState.value.primaryButtonShowsStart -> start()
+            _uiState.value.primaryButtonShowsStop -> stop()
+            else -> resetWithPreparation()
         }
     }
 
@@ -319,6 +326,13 @@ class WorkoutSecondTimerViewModel(
 
             else -> Unit
         }
+    }
+
+    fun stop() {
+        if (sessionStatus == TimerSessionStatus.Idle || sessionStatus == TimerSessionStatus.Completed) return
+        resetAllProgress(_uiState.value.selectedSeconds, resetRoundTrips = true)
+        sessionStatus = TimerSessionStatus.Idle
+        publishUiState()
     }
 
     fun resetWithPreparation() {
