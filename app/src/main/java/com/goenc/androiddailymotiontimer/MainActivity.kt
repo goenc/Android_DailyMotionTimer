@@ -250,6 +250,11 @@ private fun WorkoutSecondTimerScreen(
                 maxHeight < 760.dp -> 168.sp
                 else -> 186.sp
             }
+            val roundTripFontSize = when {
+                maxHeight < 620.dp -> 28.sp
+                maxHeight < 760.dp -> 30.sp
+                else -> 32.sp
+            }
             val countSectionSpacing = if (compactLayout) 4.dp else 6.dp
             val secondChipWidth = 72.dp
             val secondChipSpacing = 8.dp
@@ -359,7 +364,12 @@ private fun WorkoutSecondTimerScreen(
                     Spacer(modifier = Modifier.height(countSectionSpacing))
                     Text(
                         text = stringResource(R.string.round_trip_count, uiState.roundTripCount),
-                        style = MaterialTheme.typography.titleMedium,
+                        fontSize = roundTripFontSize,
+                        lineHeight = roundTripFontSize,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
