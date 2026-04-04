@@ -176,7 +176,8 @@ class WorkoutSecondTimerViewModel(
     private var preparationElapsedMs: Long = 0L
     private var preparationRunStartedAtMs: Long? = null
     private var displayedPreparationSeconds: Int = PREPARATION_SECONDS
-    private var hasPlayedInitialDisplayCue: Boolean = false
+    private var hasPlayedPreparationInitialDisplayCue: Boolean = false
+    private var hasPlayedActiveInitialDisplayCue: Boolean = false
 
     init {
         scope.launch {
@@ -303,7 +304,7 @@ class WorkoutSecondTimerViewModel(
                 timerJob = null
                 sessionStatus = TimerSessionStatus.PreparingPaused
                 publishUiState(preparationElapsedMsSnapshot = preparationElapsedMs)
-                hasPlayedInitialDisplayCue = true
+                hasPlayedPreparationInitialDisplayCue = true
             }
 
             TimerSessionStatus.ActiveRunning -> {
@@ -313,7 +314,7 @@ class WorkoutSecondTimerViewModel(
                 timerJob = null
                 sessionStatus = TimerSessionStatus.ActivePaused
                 publishUiState(activeElapsedMsSnapshot = activeElapsedMs)
-                hasPlayedInitialDisplayCue = true
+                hasPlayedActiveInitialDisplayCue = true
             }
 
             else -> Unit
@@ -413,8 +414,12 @@ class WorkoutSecondTimerViewModel(
                     currentPhaseStartedAtElapsedMs += engine.phaseDurationMs
                     displayedRemainingSeconds = engine.initialDisplayValue()
                     nextBoundaryIndex = 1
-                    hasPlayedInitialDisplayCue = false
-                    emitInitialDisplayCueIfNeeded(state, displayedRemainingSeconds)
+                    hasPlayedActiveInitialDisplayCue = false
+                    emitInitialDisplayCueIfNeeded(
+                        state = state,
+                        displayedValue = displayedRemainingSeconds,
+                        isPreparationCue = false,
+                    )
                 }
 
                 phaseFinished && _uiState.value.loopEnabled -> {
@@ -423,8 +428,12 @@ class WorkoutSecondTimerViewModel(
                     currentPhaseStartedAtElapsedMs += engine.phaseDurationMs
                     displayedRemainingSeconds = engine.initialDisplayValue()
                     nextBoundaryIndex = 1
-                    hasPlayedInitialDisplayCue = false
-                    emitInitialDisplayCueIfNeeded(state, displayedRemainingSeconds)
+                    hasPlayedActiveInitialDisplayCue = false
+                    emitInitialDisplayCueIfNeeded(
+                        state = state,
+                        displayedValue = displayedRemainingSeconds,
+                        isPreparationCue = false,
+                    )
                 }
 
                 phaseFinished -> {
@@ -510,7 +519,10 @@ class WorkoutSecondTimerViewModel(
             activeRunStartedAtMs = null
             preparationRunStartedAtMs = null
             timerJob = null
-            hasPlayedInitialDisplayCue = sessionStatus.isPaused
+            hasPlayedPreparationInitialDisplayCue =
+                sessionStatus == TimerSessionStatus.PreparingPaused
+            hasPlayedActiveInitialDisplayCue =
+                sessionStatus == TimerSessionStatus.ActivePaused
         }
     }
 
@@ -522,9 +534,14 @@ class WorkoutSecondTimerViewModel(
         preparationRunStartedAtMs = SystemClock.elapsedRealtime()
         displayedPreparationSeconds = PREPARATION_SECONDS
         sessionStatus = TimerSessionStatus.PreparingRunning
-        hasPlayedInitialDisplayCue = false
+        hasPlayedPreparationInitialDisplayCue = false
+        hasPlayedActiveInitialDisplayCue = false
         publishUiState(preparationElapsedMsSnapshot = 0L)
-        emitInitialDisplayCueIfNeeded(_uiState.value, displayedPreparationSeconds)
+        emitInitialDisplayCueIfNeeded(
+            state = _uiState.value,
+            displayedValue = displayedPreparationSeconds,
+            isPreparationCue = true,
+        )
         launchTimerLoop()
     }
 
@@ -535,9 +552,14 @@ class WorkoutSecondTimerViewModel(
         activeRunStartedAtMs = SystemClock.elapsedRealtime()
         preparationRunStartedAtMs = null
         displayedPreparationSeconds = PREPARATION_SECONDS
+        hasPlayedActiveInitialDisplayCue = false
         publishUiState(activeElapsedMsSnapshot = activeElapsedMs, preparationElapsedMsSnapshot = 0L)
         if (playInitialCue) {
-            emitInitialDisplayCueIfNeeded(_uiState.value, displayedRemainingSeconds)
+            emitInitialDisplayCueIfNeeded(
+                state = _uiState.value,
+                displayedValue = displayedRemainingSeconds,
+                isPreparationCue = false,
+            )
         }
         launchTimerLoop()
     }
@@ -554,7 +576,8 @@ class WorkoutSecondTimerViewModel(
         preparationElapsedMs = 0L
         preparationRunStartedAtMs = null
         displayedPreparationSeconds = PREPARATION_SECONDS
-        hasPlayedInitialDisplayCue = false
+        hasPlayedPreparationInitialDisplayCue = false
+        hasPlayedActiveInitialDisplayCue = false
         if (resetRoundTrips) {
             roundTripCount = 0
         }
@@ -590,13 +613,26 @@ class WorkoutSecondTimerViewModel(
         emitCountdownSound(displayedValue, state.countdownSoundEnabled)
     }
 
-    private fun emitInitialDisplayCueIfNeeded(state: WorkoutTimerUiState, displayedValue: Int) {
-        if (hasPlayedInitialDisplayCue || displayedValue == 0) return
+    private fun emitInitialDisplayCueIfNeeded(
+        state: WorkoutTimerUiState,
+        displayedValue: Int,
+        isPreparationCue: Boolean,
+    ) {
+        val hasPlayedInitialCue = if (isPreparationCue) {
+            hasPlayedPreparationInitialDisplayCue
+        } else {
+            hasPlayedActiveInitialDisplayCue
+        }
+        if (hasPlayedInitialCue || displayedValue == 0) return
         if (state.tickVibrationEnabled) {
             _vibrationEvents.tryEmit(VibrationEvent.Tick)
         }
         emitCountdownSound(displayedValue, state.countdownSoundEnabled)
-        hasPlayedInitialDisplayCue = true
+        if (isPreparationCue) {
+            hasPlayedPreparationInitialDisplayCue = true
+        } else {
+            hasPlayedActiveInitialDisplayCue = true
+        }
     }
 
     private fun emitCountdownSound(displayedValue: Int, countdownSoundEnabled: Boolean) {
