@@ -56,8 +56,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,6 +70,8 @@ import androidx.lifecycle.ViewModelProvider
 import com.goenc.androiddailymotiontimer.ui.theme.AndroidDailyMotionTimerTheme
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
+
+private val PreparationCountColor = Color(0xFFFF9800)
 
 class MainActivity : ComponentActivity() {
     private lateinit var timerViewModel: WorkoutSecondTimerViewModel
@@ -97,8 +101,8 @@ class MainActivity : ComponentActivity() {
                     onEarlyTickVolumeChanged = timerViewModel::setEarlyTickVolume,
                     onTickVolumeChanged = timerViewModel::setTickVolume,
                     onLoopCompleteVolumeChanged = timerViewModel::setLoopCompleteVolume,
-                    onStart = timerViewModel::start,
-                    onPause = timerViewModel::pause,
+                    onPrimaryAction = timerViewModel::onPrimaryAction,
+                    onSecondaryAction = timerViewModel::onSecondaryAction,
                     countdownCuePlayer = countdownCuePlayer,
                     countdownVoicePlayer = countdownVoicePlayer,
                 )
@@ -129,8 +133,8 @@ private fun WorkoutSecondTimerScreen(
     onEarlyTickVolumeChanged: (Int) -> Unit,
     onTickVolumeChanged: (Int) -> Unit,
     onLoopCompleteVolumeChanged: (Int) -> Unit,
-    onStart: () -> Unit,
-    onPause: () -> Unit,
+    onPrimaryAction: () -> Unit,
+    onSecondaryAction: () -> Unit,
     countdownCuePlayer: CountdownCuePlayer,
     countdownVoicePlayer: CountdownVoicePlayer,
 ) {
@@ -241,6 +245,31 @@ private fun WorkoutSecondTimerScreen(
             val secondChipSpacing = 8.dp
             val secondsRowHorizontalPadding = maxOf(0.dp, (maxWidth - secondChipWidth) / 2)
             val selectedIndex = uiState.selectedSeconds - MIN_SECONDS
+            val phaseLabel = when {
+                uiState.isPreparing -> stringResource(R.string.timer_phase_preparation)
+                uiState.sessionStatus == TimerSessionStatus.Completed ->
+                    stringResource(R.string.timer_phase_complete)
+
+                uiState.currentPhase == WorkoutPhase.Fast ->
+                    stringResource(R.string.timer_phase_fast)
+
+                else -> stringResource(R.string.timer_phase_slow)
+            }
+            val countColor = if (uiState.isPreparing) {
+                PreparationCountColor
+            } else {
+                MaterialTheme.colorScheme.primary
+            }
+            val primaryButtonLabel = if (uiState.primaryButtonShowsStart) {
+                stringResource(R.string.timer_action_start)
+            } else {
+                stringResource(R.string.timer_action_reset)
+            }
+            val secondaryButtonLabel = if (uiState.canResume) {
+                stringResource(R.string.timer_action_resume)
+            } else {
+                stringResource(R.string.timer_action_pause)
+            }
 
             LaunchedEffect(uiState.selectedSeconds) {
                 if (hasCenteredInitialSelection) {
@@ -297,7 +326,17 @@ private fun WorkoutSecondTimerScreen(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        text = uiState.remainingSeconds.toString(),
+                        text = phaseLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (uiState.isPreparing) {
+                            PreparationCountColor
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = uiState.displaySeconds.toString(),
                         fontSize = countFontSize,
                         lineHeight = countLineHeight,
                         fontWeight = FontWeight.Black,
@@ -305,7 +344,13 @@ private fun WorkoutSecondTimerScreen(
                         softWrap = false,
                         maxLines = 1,
                         modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.primary,
+                        color = countColor,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(R.string.round_trip_count, uiState.roundTripCount),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     LazyRow(
@@ -320,10 +365,10 @@ private fun WorkoutSecondTimerScreen(
                                 selected = uiState.selectedSeconds == second,
                                 onClick = { onSecondSelected(second) },
                                 label = { Text("${second}秒") },
-                                enabled = !uiState.isRunning,
+                                enabled = uiState.canChangeSeconds,
                                 modifier = Modifier.width(secondChipWidth),
                                 border = FilterChipDefaults.filterChipBorder(
-                                    enabled = !uiState.isRunning,
+                                    enabled = uiState.canChangeSeconds,
                                     selected = uiState.selectedSeconds == second,
                                     borderColor = MaterialTheme.colorScheme.outlineVariant,
                                     selectedBorderColor = MaterialTheme.colorScheme.primary,
@@ -369,15 +414,15 @@ private fun WorkoutSecondTimerScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         TimerActionButton(
-                            label = "開始",
-                            onClick = onStart,
-                            enabled = !uiState.isRunning,
+                            label = primaryButtonLabel,
+                            onClick = onPrimaryAction,
+                            enabled = true,
                             modifier = Modifier.weight(1f),
                         )
                         TimerActionButton(
-                            label = "一時停止",
-                            onClick = onPause,
-                            enabled = uiState.isRunning,
+                            label = secondaryButtonLabel,
+                            onClick = onSecondaryAction,
+                            enabled = uiState.secondaryButtonEnabled,
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
