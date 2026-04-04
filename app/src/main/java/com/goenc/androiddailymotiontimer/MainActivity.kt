@@ -29,7 +29,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -239,12 +241,26 @@ private fun WorkoutSecondTimerScreen(
         BoxWithConstraints(
             modifier = Modifier.fillMaxSize(),
         ) {
-            val countFontSize = if (maxHeight < 700.dp) 178.sp else 196.sp
-            val countLineHeight = if (maxHeight < 700.dp) 168.sp else 186.sp
+            val compactLayout = maxHeight < 760.dp
+            val countFontSize = when {
+                maxHeight < 620.dp -> 132.sp
+                maxHeight < 700.dp -> 154.sp
+                maxHeight < 760.dp -> 178.sp
+                else -> 196.sp
+            }
+            val countLineHeight = when {
+                maxHeight < 620.dp -> 124.sp
+                maxHeight < 700.dp -> 144.sp
+                maxHeight < 760.dp -> 168.sp
+                else -> 186.sp
+            }
+            val countSectionSpacing = if (compactLayout) 4.dp else 6.dp
+            val bottomSectionMaxHeight = if (compactLayout) 220.dp else 280.dp
             val secondChipWidth = 72.dp
             val secondChipSpacing = 8.dp
             val secondsRowHorizontalPadding = maxOf(0.dp, (maxWidth - secondChipWidth) / 2)
             val selectedIndex = uiState.selectedSeconds - MIN_SECONDS
+            val bottomSectionScrollState = rememberScrollState()
             val phaseLabel = when {
                 uiState.isPreparing -> stringResource(R.string.timer_phase_preparation)
                 uiState.sessionStatus == TimerSessionStatus.Completed ->
@@ -288,7 +304,7 @@ private fun WorkoutSecondTimerScreen(
                     .navigationBarsPadding()
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(if (compactLayout) 8.dp else 10.dp),
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -334,7 +350,7 @@ private fun WorkoutSecondTimerScreen(
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(countSectionSpacing))
                     Text(
                         text = uiState.displaySeconds.toString(),
                         fontSize = countFontSize,
@@ -346,44 +362,46 @@ private fun WorkoutSecondTimerScreen(
                         modifier = Modifier.fillMaxWidth(),
                         color = countColor,
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(countSectionSpacing))
                     Text(
                         text = stringResource(R.string.round_trip_count, uiState.roundTripCount),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    LazyRow(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        state = secondListState,
-                        contentPadding = PaddingValues(horizontal = secondsRowHorizontalPadding),
-                        horizontalArrangement = Arrangement.spacedBy(secondChipSpacing),
-                    ) {
-                        items(secondOptions) { second ->
-                            FilterChip(
-                                selected = uiState.selectedSeconds == second,
-                                onClick = { onSecondSelected(second) },
-                                label = { Text("${second}秒") },
+                }
+
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    state = secondListState,
+                    contentPadding = PaddingValues(horizontal = secondsRowHorizontalPadding),
+                    horizontalArrangement = Arrangement.spacedBy(secondChipSpacing),
+                ) {
+                    items(secondOptions) { second ->
+                        FilterChip(
+                            selected = uiState.selectedSeconds == second,
+                            onClick = { onSecondSelected(second) },
+                            label = { Text("${second}秒") },
+                            enabled = uiState.canChangeSeconds,
+                            modifier = Modifier.width(secondChipWidth),
+                            border = FilterChipDefaults.filterChipBorder(
                                 enabled = uiState.canChangeSeconds,
-                                modifier = Modifier.width(secondChipWidth),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = uiState.canChangeSeconds,
-                                    selected = uiState.selectedSeconds == second,
-                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                    selectedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                ),
-                            )
-                        }
+                                selected = uiState.selectedSeconds == second,
+                                borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                        )
                     }
                 }
 
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = bottomSectionMaxHeight)
+                        .verticalScroll(bottomSectionScrollState),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     TimerToggleRow(
