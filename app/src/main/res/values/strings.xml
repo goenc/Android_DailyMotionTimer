@@ -12,5 +12,7 @@
     <string name="round_trip_count">往復 %1$d回</string>
     <string name="timer_toggle_loop">ループ</string>
     <string name="timer_toggle_vibration">バイブ</string>
-    <string name="timer_toggle_countdown_sound">カウント音</string>
+    <string name="timer_toggle_countdown_sound">音声</string>
+    <string name="timer_sound_settings_title">音声設定</string>
+    <string name="timer_sound_mode_label">音声種類</string>
 </resources>

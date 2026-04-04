@@ -316,7 +316,7 @@ private fun WorkoutSecondTimerScreen(
                         IconButton(onClick = { showSettingsDialog = true }) {
                             Icon(
                                 imageVector = Icons.Filled.Settings,
-                                contentDescription = "カウント音設定",
+                                contentDescription = stringResource(R.string.timer_sound_settings_title),
                             )
                         }
                     }
@@ -478,7 +478,7 @@ private fun CountdownSoundSettingsDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = "カウント音設定",
+                    text = stringResource(R.string.timer_sound_settings_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -544,7 +544,7 @@ private fun CountSoundModeSelectorRow(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = "カウント音種類",
+            text = stringResource(R.string.timer_sound_mode_label),
             style = MaterialTheme.typography.titleSmall,
         )
         Row(

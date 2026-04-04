@@ -290,8 +290,7 @@ class WorkoutSecondTimerViewModel(
 
     fun start() {
         if (!_uiState.value.primaryButtonShowsStart) return
-        resetAllProgress(_uiState.value.selectedSeconds, resetRoundTrips = true)
-        startActiveRun(playInitialCue = true)
+        restartFromPreparation()
     }
 
     fun pause() {
@@ -350,6 +349,10 @@ class WorkoutSecondTimerViewModel(
 
     fun resetWithPreparation() {
         if (sessionStatus == TimerSessionStatus.Idle || sessionStatus == TimerSessionStatus.Completed) return
+        restartFromPreparation()
+    }
+
+    private fun restartFromPreparation() {
         resetAllProgress(_uiState.value.selectedSeconds, resetRoundTrips = true)
         startPreparationRun()
     }
