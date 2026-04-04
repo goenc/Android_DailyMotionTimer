@@ -29,9 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -94,8 +92,7 @@ class MainActivity : ComponentActivity() {
                     countdownSoundEvents = timerViewModel.countdownSoundEvents,
                     onSecondSelected = timerViewModel::setSelectedSeconds,
                     onLoopChanged = timerViewModel::setLoopEnabled,
-                    onTickVibrationChanged = timerViewModel::setTickVibrationEnabled,
-                    onLoopVibrationChanged = timerViewModel::setLoopVibrationEnabled,
+                    onVibrationChanged = timerViewModel::setVibrationEnabled,
                     onNormalVibrationLevelChanged = timerViewModel::setNormalVibrationLevel,
                     onCompleteVibrationLevelChanged = timerViewModel::setCompleteVibrationLevel,
                     onCountdownSoundChanged = timerViewModel::setCountdownSoundEnabled,
@@ -126,8 +123,7 @@ private fun WorkoutSecondTimerScreen(
     countdownSoundEvents: SharedFlow<CountdownSoundEvent>,
     onSecondSelected: (Int) -> Unit,
     onLoopChanged: (Boolean) -> Unit,
-    onTickVibrationChanged: (Boolean) -> Unit,
-    onLoopVibrationChanged: (Boolean) -> Unit,
+    onVibrationChanged: (Boolean) -> Unit,
     onNormalVibrationLevelChanged: (Int) -> Unit,
     onCompleteVibrationLevelChanged: (Int) -> Unit,
     onCountdownSoundChanged: (Boolean) -> Unit,
@@ -255,12 +251,10 @@ private fun WorkoutSecondTimerScreen(
                 else -> 186.sp
             }
             val countSectionSpacing = if (compactLayout) 4.dp else 6.dp
-            val bottomSectionMaxHeight = if (compactLayout) 220.dp else 280.dp
             val secondChipWidth = 72.dp
             val secondChipSpacing = 8.dp
             val secondsRowHorizontalPadding = maxOf(0.dp, (maxWidth - secondChipWidth) / 2)
             val selectedIndex = uiState.selectedSeconds - MIN_SECONDS
-            val bottomSectionScrollState = rememberScrollState()
             val phaseLabel = when {
                 uiState.isPreparing -> stringResource(R.string.timer_phase_preparation)
                 uiState.sessionStatus == TimerSessionStatus.Completed ->
@@ -398,34 +392,26 @@ private fun WorkoutSecondTimerScreen(
                 }
 
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = bottomSectionMaxHeight)
-                        .verticalScroll(bottomSectionScrollState),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    TimerToggleRow(
-                        label = "ループ",
-                        checked = uiState.loopEnabled,
-                        onCheckedChange = onLoopChanged,
-                    )
-                    TimerToggleRow(
-                        label = "毎秒バイブ",
-                        checked = uiState.tickVibrationEnabled,
-                        onCheckedChange = onTickVibrationChanged,
-                    )
-                    TimerToggleRow(
-                        label = "ループ完了バイブ",
-                        checked = uiState.loopVibrationEnabled,
-                        onCheckedChange = onLoopVibrationChanged,
-                    )
-                    TimerToggleRow(
-                        label = "カウント音",
-                        checked = uiState.countdownSoundEnabled,
-                        onCheckedChange = onCountdownSoundChanged,
-                    )
-
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TimerToggleRow(
+                            label = stringResource(R.string.timer_toggle_vibration),
+                            checked = uiState.vibrationEnabled,
+                            onCheckedChange = onVibrationChanged,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TimerToggleRow(
+                            label = stringResource(R.string.timer_toggle_countdown_sound),
+                            checked = uiState.countdownSoundEnabled,
+                            onCheckedChange = onCountdownSoundChanged,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -457,6 +443,7 @@ private fun WorkoutSecondTimerScreen(
         CountdownSoundSettingsDialog(
             uiState = uiState,
             onDismiss = { showSettingsDialog = false },
+            onLoopChanged = onLoopChanged,
             onCountSoundModeChanged = onCountSoundModeChanged,
             onEarlyTickVolumeChanged = onEarlyTickVolumeChanged,
             onTickVolumeChanged = onTickVolumeChanged,
@@ -471,6 +458,7 @@ private fun WorkoutSecondTimerScreen(
 private fun CountdownSoundSettingsDialog(
     uiState: WorkoutTimerUiState,
     onDismiss: () -> Unit,
+    onLoopChanged: (Boolean) -> Unit,
     onCountSoundModeChanged: (CountSoundMode) -> Unit,
     onEarlyTickVolumeChanged: (Int) -> Unit,
     onTickVolumeChanged: (Int) -> Unit,
@@ -493,6 +481,11 @@ private fun CountdownSoundSettingsDialog(
                     text = "カウント音設定",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
+                )
+                TimerToggleRow(
+                    label = stringResource(R.string.timer_toggle_loop),
+                    checked = uiState.loopEnabled,
+                    onCheckedChange = onLoopChanged,
                 )
                 CountSoundModeSelectorRow(
                     selectedMode = uiState.countSoundMode,
@@ -711,9 +704,10 @@ private fun TimerToggleRow(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         tonalElevation = 2.dp,
         shadowElevation = 0.dp,

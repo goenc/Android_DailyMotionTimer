@@ -95,6 +95,9 @@ data class WorkoutTimerUiState(
     val normalVibrationLevel: Int = DEFAULT_NORMAL_VIBRATION_LEVEL,
     val completeVibrationLevel: Int = DEFAULT_COMPLETE_VIBRATION_LEVEL,
 ) {
+    val vibrationEnabled: Boolean
+        get() = tickVibrationEnabled || loopVibrationEnabled
+
     val isRunning: Boolean
         get() = sessionStatus.isRunning
 
@@ -193,6 +196,16 @@ class WorkoutSecondTimerViewModel(
 
     fun setLoopEnabled(enabled: Boolean) {
         _uiState.update { it.copy(loopEnabled = enabled) }
+        persistCurrentSettings()
+    }
+
+    fun setVibrationEnabled(enabled: Boolean) {
+        _uiState.update {
+            it.copy(
+                tickVibrationEnabled = enabled,
+                loopVibrationEnabled = enabled,
+            )
+        }
         persistCurrentSettings()
     }
 

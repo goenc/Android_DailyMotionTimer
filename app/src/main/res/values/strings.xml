@@ -10,4 +10,7 @@
     <string name="timer_phase_slow">帰り</string>
     <string name="timer_phase_complete">完了</string>
     <string name="round_trip_count">往復 %1$d回</string>
+    <string name="timer_toggle_loop">ループ</string>
+    <string name="timer_toggle_vibration">バイブ</string>
+    <string name="timer_toggle_countdown_sound">カウント音</string>
 </resources>
