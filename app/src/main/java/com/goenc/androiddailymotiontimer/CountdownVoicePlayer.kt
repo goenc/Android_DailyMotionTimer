@@ -162,7 +162,7 @@ class CountdownVoicePlayer(context: Context) {
         val params = Bundle().apply {
             putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, resolveVolume(phaseSpeech.cueType))
         }
-        val speakText = "${phaseSpeech.count}$phaseLabel"
+        val speakText = phaseLabel
         val status = tts.speak(
             speakText,
             TextToSpeech.QUEUE_FLUSH,
