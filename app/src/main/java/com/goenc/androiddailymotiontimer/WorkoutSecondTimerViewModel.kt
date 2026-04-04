@@ -140,6 +140,7 @@ enum class VibrationEvent {
 data class CountdownSoundEvent(
     val cueType: CountdownCueType,
     val displayedValue: Int,
+    val voicePhase: WorkoutPhase? = null,
 )
 
 enum class CountdownCueType {
@@ -612,7 +613,10 @@ class WorkoutSecondTimerViewModel(
             _vibrationEvents.tryEmit(VibrationEvent.Tick)
         }
 
-        emitCountdownSound(displayedValue, state.countdownSoundEnabled)
+        emitCountdownSound(
+            displayedValue = displayedValue,
+            countdownSoundEnabled = state.countdownSoundEnabled,
+        )
     }
 
     private fun emitInitialDisplayCueIfNeeded(
@@ -629,7 +633,11 @@ class WorkoutSecondTimerViewModel(
         if (state.tickVibrationEnabled) {
             _vibrationEvents.tryEmit(VibrationEvent.Tick)
         }
-        emitCountdownSound(displayedValue, state.countdownSoundEnabled)
+        emitCountdownSound(
+            displayedValue = displayedValue,
+            countdownSoundEnabled = state.countdownSoundEnabled,
+            voicePhase = if (isPreparationCue) null else currentPhase,
+        )
         if (isPreparationCue) {
             hasPlayedPreparationInitialDisplayCue = true
         } else {
@@ -637,13 +645,18 @@ class WorkoutSecondTimerViewModel(
         }
     }
 
-    private fun emitCountdownSound(displayedValue: Int, countdownSoundEnabled: Boolean) {
+    private fun emitCountdownSound(
+        displayedValue: Int,
+        countdownSoundEnabled: Boolean,
+        voicePhase: WorkoutPhase? = null,
+    ) {
         if (!countdownSoundEnabled) return
         if (displayedValue == 0) {
             _countdownSoundEvents.tryEmit(
                 CountdownSoundEvent(
                     cueType = CountdownCueType.LoopComplete,
                     displayedValue = displayedValue,
+                    voicePhase = null,
                 )
             )
         } else if (displayedValue >= 4) {
@@ -651,6 +664,7 @@ class WorkoutSecondTimerViewModel(
                 CountdownSoundEvent(
                     cueType = CountdownCueType.EarlyTick,
                     displayedValue = displayedValue,
+                    voicePhase = voicePhase,
                 )
             )
         } else if (displayedValue in 1..3) {
@@ -658,6 +672,7 @@ class WorkoutSecondTimerViewModel(
                 CountdownSoundEvent(
                     cueType = CountdownCueType.Tick,
                     displayedValue = displayedValue,
+                    voicePhase = voicePhase,
                 )
             )
         }
