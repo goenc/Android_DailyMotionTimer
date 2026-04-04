@@ -415,8 +415,10 @@ class WorkoutSecondTimerViewModel(
                     displayedRemainingSeconds = engine.initialDisplayValue()
                     nextBoundaryIndex = 1
                     hasPlayedActiveInitialDisplayCue = false
+                    // Keep the phase-start cue aligned with the refreshed display.
+                    publishUiState(activeElapsedMsSnapshot = totalActiveElapsedMs)
                     emitInitialDisplayCueIfNeeded(
-                        state = state,
+                        state = _uiState.value,
                         displayedValue = displayedRemainingSeconds,
                         isPreparationCue = false,
                     )
@@ -429,8 +431,10 @@ class WorkoutSecondTimerViewModel(
                     displayedRemainingSeconds = engine.initialDisplayValue()
                     nextBoundaryIndex = 1
                     hasPlayedActiveInitialDisplayCue = false
+                    // Keep the phase-start cue aligned with the refreshed display.
+                    publishUiState(activeElapsedMsSnapshot = totalActiveElapsedMs)
                     emitInitialDisplayCueIfNeeded(
-                        state = state,
+                        state = _uiState.value,
                         displayedValue = displayedRemainingSeconds,
                         isPreparationCue = false,
                     )
@@ -558,6 +562,7 @@ class WorkoutSecondTimerViewModel(
         hasPlayedActiveInitialDisplayCue = false
         publishUiState(activeElapsedMsSnapshot = activeElapsedMs, preparationElapsedMsSnapshot = 0L)
         if (playInitialCue) {
+            // Emit the first active-phase cue immediately after the display switches.
             emitInitialDisplayCueIfNeeded(
                 state = _uiState.value,
                 displayedValue = displayedRemainingSeconds,

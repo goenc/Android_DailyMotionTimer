@@ -40,7 +40,7 @@ class CountdownVoicePlayer(context: Context) {
                 tts.language = Locale.JAPAN
                 pendingPhaseSpeech?.let { pendingSpeech ->
                     pendingPhaseSpeech = null
-                    speakPhaseCue(pendingSpeech)
+                    speakPhaseCueNow(pendingSpeech)
                 }
             } else {
                 pendingPhaseSpeech = null
@@ -150,11 +150,16 @@ class CountdownVoicePlayer(context: Context) {
 
     private fun speakPhaseCue(phaseSpeech: PhaseSpeech) {
         stopActivePlayback()
-        stopTextToSpeech()
         if (!textToSpeechReady) {
             pendingPhaseSpeech = phaseSpeech
             return
         }
+        pendingPhaseSpeech = null
+        // QUEUE_FLUSH already replaces the current utterance, so avoid an extra stop() here.
+        speakPhaseCueNow(phaseSpeech)
+    }
+
+    private fun speakPhaseCueNow(phaseSpeech: PhaseSpeech) {
         val tts = textToSpeech ?: return
 
         val speakText = when (phaseSpeech.voicePhase) {
