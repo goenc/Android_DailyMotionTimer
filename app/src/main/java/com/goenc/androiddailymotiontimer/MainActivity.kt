@@ -178,6 +178,7 @@ private fun WorkoutSecondTimerScreen(
                     count = event.displayedValue,
                     cueType = event.cueType,
                     voicePhase = event.voicePhase,
+                    voiceRoundTripCount = event.voiceRoundTripCount,
                 )
             }
         }

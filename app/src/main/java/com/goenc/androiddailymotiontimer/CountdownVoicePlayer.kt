@@ -65,6 +65,7 @@ class CountdownVoicePlayer(context: Context) {
         count: Int,
         cueType: CountdownCueType,
         voicePhase: WorkoutPhase? = null,
+        voiceRoundTripCount: Int? = null,
     ) {
         if (voicePhase != null) {
             pendingPlayback = null
@@ -73,6 +74,7 @@ class CountdownVoicePlayer(context: Context) {
                     count = count,
                     cueType = cueType,
                     voicePhase = voicePhase,
+                    voiceRoundTripCount = voiceRoundTripCount,
                 )
             )
             return
@@ -155,19 +157,19 @@ class CountdownVoicePlayer(context: Context) {
         }
         val tts = textToSpeech ?: return
 
-        val phaseLabel = when (phaseSpeech.voicePhase) {
-            WorkoutPhase.Fast -> appContext.getString(R.string.timer_phase_fast)
+        val speakText = when (phaseSpeech.voicePhase) {
+            WorkoutPhase.Fast -> phaseSpeech.voiceRoundTripCount?.let { "${it}回" }
+                ?: appContext.getString(R.string.timer_phase_fast)
             WorkoutPhase.Slow -> appContext.getString(R.string.timer_phase_slow)
         }
         val params = Bundle().apply {
             putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, resolveVolume(phaseSpeech.cueType))
         }
-        val speakText = phaseLabel
         val status = tts.speak(
             speakText,
             TextToSpeech.QUEUE_FLUSH,
             params,
-            "${phaseSpeech.count}-${phaseSpeech.voicePhase.name}",
+            "${phaseSpeech.count}-${phaseSpeech.voicePhase.name}-${phaseSpeech.voiceRoundTripCount ?: 0}",
         )
         if (status != TextToSpeech.SUCCESS) {
             Log.w(TAG, "Failed to speak countdown voice text=$speakText")
@@ -200,5 +202,6 @@ class CountdownVoicePlayer(context: Context) {
         val count: Int,
         val cueType: CountdownCueType,
         val voicePhase: WorkoutPhase,
+        val voiceRoundTripCount: Int?,
     )
 }

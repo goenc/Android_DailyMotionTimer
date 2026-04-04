@@ -141,6 +141,7 @@ data class CountdownSoundEvent(
     val cueType: CountdownCueType,
     val displayedValue: Int,
     val voicePhase: WorkoutPhase? = null,
+    val voiceRoundTripCount: Int? = null,
 )
 
 enum class CountdownCueType {
@@ -637,6 +638,11 @@ class WorkoutSecondTimerViewModel(
             displayedValue = displayedValue,
             countdownSoundEnabled = state.countdownSoundEnabled,
             voicePhase = if (isPreparationCue) null else currentPhase,
+            voiceRoundTripCount = if (!isPreparationCue && currentPhase == WorkoutPhase.Fast) {
+                roundTripCount
+            } else {
+                null
+            },
         )
         if (isPreparationCue) {
             hasPlayedPreparationInitialDisplayCue = true
@@ -649,6 +655,7 @@ class WorkoutSecondTimerViewModel(
         displayedValue: Int,
         countdownSoundEnabled: Boolean,
         voicePhase: WorkoutPhase? = null,
+        voiceRoundTripCount: Int? = null,
     ) {
         if (!countdownSoundEnabled) return
         if (displayedValue == 0) {
@@ -657,6 +664,7 @@ class WorkoutSecondTimerViewModel(
                     cueType = CountdownCueType.LoopComplete,
                     displayedValue = displayedValue,
                     voicePhase = null,
+                    voiceRoundTripCount = null,
                 )
             )
         } else if (displayedValue >= 4) {
@@ -665,6 +673,7 @@ class WorkoutSecondTimerViewModel(
                     cueType = CountdownCueType.EarlyTick,
                     displayedValue = displayedValue,
                     voicePhase = voicePhase,
+                    voiceRoundTripCount = voiceRoundTripCount,
                 )
             )
         } else if (displayedValue in 1..3) {
@@ -673,6 +682,7 @@ class WorkoutSecondTimerViewModel(
                     cueType = CountdownCueType.Tick,
                     displayedValue = displayedValue,
                     voicePhase = voicePhase,
+                    voiceRoundTripCount = voiceRoundTripCount,
                 )
             )
         }
