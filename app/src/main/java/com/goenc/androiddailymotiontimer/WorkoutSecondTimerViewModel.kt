@@ -115,10 +115,7 @@ data class WorkoutTimerUiState(
             sessionStatus == TimerSessionStatus.ActivePaused
 
     val canChangeSeconds: Boolean
-        get() = sessionStatus == TimerSessionStatus.Idle ||
-            sessionStatus == TimerSessionStatus.Completed ||
-            sessionStatus == TimerSessionStatus.PreparingPaused ||
-            sessionStatus == TimerSessionStatus.ActivePaused
+        get() = sessionStatus == TimerSessionStatus.Idle
 
     val primaryButtonShowsStart: Boolean
         get() = sessionStatus == TimerSessionStatus.Idle || sessionStatus == TimerSessionStatus.Completed

@@ -9,6 +9,7 @@ import android.os.VibratorManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -295,6 +296,12 @@ private fun WorkoutSecondTimerScreen(
                 }
             }
 
+            LaunchedEffect(uiState.canChangeSeconds) {
+                if (!uiState.canChangeSeconds) {
+                    secondListState.stopScroll()
+                }
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -377,6 +384,7 @@ private fun WorkoutSecondTimerScreen(
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     state = secondListState,
+                    userScrollEnabled = uiState.canChangeSeconds,
                     contentPadding = PaddingValues(horizontal = secondsRowHorizontalPadding),
                     horizontalArrangement = Arrangement.spacedBy(secondChipSpacing),
                 ) {
