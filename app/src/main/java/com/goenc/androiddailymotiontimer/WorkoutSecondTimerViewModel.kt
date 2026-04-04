@@ -34,6 +34,7 @@ const val MIN_VIBRATION_LEVEL = 1
 const val MAX_VIBRATION_LEVEL = 4
 const val DEFAULT_NORMAL_VIBRATION_LEVEL = 2
 const val DEFAULT_COMPLETE_VIBRATION_LEVEL = 2
+const val INITIAL_ROUND_TRIP_COUNT = 1
 
 private const val PREPARATION_SECONDS = 10
 private const val PREPARATION_COMPLETE_DURATION_MS = (PREPARATION_SECONDS + 1) * 1_000L
@@ -83,7 +84,7 @@ data class WorkoutTimerUiState(
     val elapsedTimeText: String = "00:00",
     val sessionStatus: TimerSessionStatus = TimerSessionStatus.Idle,
     val currentPhase: WorkoutPhase = WorkoutPhase.Fast,
-    val roundTripCount: Int = 0,
+    val roundTripCount: Int = INITIAL_ROUND_TRIP_COUNT,
     val loopEnabled: Boolean = false,
     val tickVibrationEnabled: Boolean = false,
     val loopVibrationEnabled: Boolean = true,
@@ -164,7 +165,7 @@ class WorkoutSecondTimerViewModel(
     private var timerJob: Job? = null
     private var sessionStatus: TimerSessionStatus = TimerSessionStatus.Idle
     private var currentPhase: WorkoutPhase = WorkoutPhase.Fast
-    private var roundTripCount: Int = 0
+    private var roundTripCount: Int = INITIAL_ROUND_TRIP_COUNT
     private var activeElapsedMs: Long = 0L
     private var activeRunStartedAtMs: Long? = null
     private var currentPhaseStartedAtElapsedMs: Long = 0L
@@ -490,7 +491,10 @@ class WorkoutSecondTimerViewModel(
             ?: WorkoutPhase.Fast
 
         currentPhase = restoredPhase
-        roundTripCount = max(0, savedStateHandle.get<Int>(ROUND_TRIP_COUNT_KEY) ?: 0)
+        roundTripCount = max(
+            INITIAL_ROUND_TRIP_COUNT,
+            savedStateHandle.get<Int>(ROUND_TRIP_COUNT_KEY) ?: INITIAL_ROUND_TRIP_COUNT,
+        )
         activeElapsedMs = max(0L, savedStateHandle.get<Long>(ACTIVE_ELAPSED_MS_KEY) ?: 0L)
         currentPhaseStartedAtElapsedMs = max(
             0L,
@@ -576,7 +580,7 @@ class WorkoutSecondTimerViewModel(
         hasPlayedPreparationInitialDisplayCue = false
         hasPlayedActiveInitialDisplayCue = false
         if (resetRoundTrips) {
-            roundTripCount = 0
+            roundTripCount = INITIAL_ROUND_TRIP_COUNT
         }
     }
 
@@ -584,6 +588,7 @@ class WorkoutSecondTimerViewModel(
         activeElapsedMsSnapshot: Long = activeElapsedMs,
         preparationElapsedMsSnapshot: Long = preparationElapsedMs,
     ) {
+        val displayedRoundTripCount = roundTripCount.coerceAtLeast(INITIAL_ROUND_TRIP_COUNT)
         _uiState.update { state ->
             state.copy(
                 remainingSeconds = displayedRemainingSeconds,
@@ -591,7 +596,7 @@ class WorkoutSecondTimerViewModel(
                 elapsedTimeText = formatElapsedTime(activeElapsedMsSnapshot),
                 sessionStatus = sessionStatus,
                 currentPhase = currentPhase,
-                roundTripCount = roundTripCount,
+                roundTripCount = displayedRoundTripCount,
             )
         }
         persistSessionSnapshot(
@@ -689,9 +694,10 @@ class WorkoutSecondTimerViewModel(
         activeElapsedMsSnapshot: Long = activeElapsedMs,
         preparationElapsedMsSnapshot: Long = preparationElapsedMs,
     ) {
+        val persistedRoundTripCount = roundTripCount.coerceAtLeast(INITIAL_ROUND_TRIP_COUNT)
         savedStateHandle[SESSION_STATUS_KEY] = sessionStatus.name
         savedStateHandle[CURRENT_PHASE_KEY] = currentPhase.name
-        savedStateHandle[ROUND_TRIP_COUNT_KEY] = roundTripCount
+        savedStateHandle[ROUND_TRIP_COUNT_KEY] = persistedRoundTripCount
         savedStateHandle[ACTIVE_ELAPSED_MS_KEY] = activeElapsedMsSnapshot
         savedStateHandle[PHASE_STARTED_AT_MS_KEY] = currentPhaseStartedAtElapsedMs
         savedStateHandle[NEXT_BOUNDARY_INDEX_KEY] = nextBoundaryIndex
