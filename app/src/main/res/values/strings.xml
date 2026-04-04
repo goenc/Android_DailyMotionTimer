@@ -6,8 +6,8 @@
     <string name="timer_action_pause">一時停止</string>
     <string name="timer_action_resume">再開</string>
     <string name="timer_phase_preparation">準備</string>
-    <string name="timer_phase_fast">行き</string>
-    <string name="timer_phase_slow">帰り</string>
+    <string name="timer_phase_fast">下降</string>
+    <string name="timer_phase_slow">上昇</string>
     <string name="timer_phase_complete">完了</string>
     <string name="round_trip_count">回数 %1$d</string>
     <string name="timer_toggle_loop">ループ</string>

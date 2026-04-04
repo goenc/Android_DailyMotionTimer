@@ -251,6 +251,16 @@ private fun WorkoutSecondTimerScreen(
                 maxHeight < 760.dp -> 168.sp
                 else -> 186.sp
             }
+            val phaseFontSize = when {
+                maxHeight < 620.dp -> 32.sp
+                maxHeight < 760.dp -> 36.sp
+                else -> 40.sp
+            }
+            val phaseLineHeight = when {
+                maxHeight < 620.dp -> 36.sp
+                maxHeight < 760.dp -> 40.sp
+                else -> 44.sp
+            }
             val roundTripFontSize = when {
                 maxHeight < 620.dp -> 28.sp
                 maxHeight < 760.dp -> 30.sp
@@ -350,6 +360,12 @@ private fun WorkoutSecondTimerScreen(
                     Text(
                         text = phaseLabel,
                         style = MaterialTheme.typography.titleMedium,
+                        fontSize = phaseFontSize,
+                        lineHeight = phaseLineHeight,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
                         color = if (uiState.isPreparing) {
                             PreparationCountColor
                         } else {
