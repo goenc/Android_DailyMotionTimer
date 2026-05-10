@@ -905,12 +905,13 @@ private fun timerBackgroundColor(
         return idleBackgroundColor
     }
 
-    val loopStepCount = (uiState.selectedSeconds * 2).coerceAtLeast(1)
-    val currentLoopStepCount = when (uiState.currentPhase) {
-        WorkoutPhase.Fast -> uiState.selectedSeconds - uiState.remainingSeconds
-        WorkoutPhase.Slow -> uiState.selectedSeconds + (uiState.selectedSeconds - uiState.remainingSeconds)
-    }.coerceIn(0, loopStepCount)
-    val overallProgress = currentLoopStepCount.toFloat() / loopStepCount.toFloat()
+    if (!uiState.loopEnabled) {
+        return ProgressGreenBackground
+    }
+
+    val configuredLoopCount = uiState.maxLoopCount.coerceAtLeast(1)
+    val completedLoopCount = (uiState.roundTripCount - 1).coerceAtLeast(0)
+    val overallProgress = completedLoopCount.toFloat() / configuredLoopCount.toFloat()
 
     return when {
         overallProgress < 0.3f -> ProgressGreenBackground
