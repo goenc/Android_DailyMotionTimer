@@ -11,6 +11,7 @@
     <string name="timer_phase_complete">完了</string>
     <string name="round_trip_count">回数 %1$d</string>
     <string name="timer_toggle_loop">ループ</string>
+    <string name="timer_loop_count_label">最大回数</string>
     <string name="timer_toggle_vibration">バイブ</string>
     <string name="timer_toggle_countdown_sound">音声</string>
     <string name="timer_sound_settings_title">音声設定</string>

@@ -73,6 +73,11 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 
 private val PreparationCountColor = Color(0xFFFF9800)
+private val ProgressGreenBackground = Color(0xFFE2F6E9)
+private val ProgressWarmLowBackground = Color(0xFFFFF1E0)
+private val ProgressWarmMidBackground = Color(0xFFFFE1C4)
+private val ProgressWarmHighBackground = Color(0xFFFFCCAA)
+private val ProgressCompleteBackground = Color(0xFFFFB680)
 
 class MainActivity : ComponentActivity() {
     private lateinit var timerViewModel: WorkoutSecondTimerViewModel
@@ -93,6 +98,7 @@ class MainActivity : ComponentActivity() {
                     countdownSoundEvents = timerViewModel.countdownSoundEvents,
                     onSecondSelected = timerViewModel::setSelectedSeconds,
                     onLoopChanged = timerViewModel::setLoopEnabled,
+                    onMaxLoopCountChanged = timerViewModel::setMaxLoopCount,
                     onVibrationChanged = timerViewModel::setVibrationEnabled,
                     onNormalVibrationLevelChanged = timerViewModel::setNormalVibrationLevel,
                     onCompleteVibrationLevelChanged = timerViewModel::setCompleteVibrationLevel,
@@ -124,6 +130,7 @@ private fun WorkoutSecondTimerScreen(
     countdownSoundEvents: SharedFlow<CountdownSoundEvent>,
     onSecondSelected: (Int) -> Unit,
     onLoopChanged: (Boolean) -> Unit,
+    onMaxLoopCountChanged: (Int) -> Unit,
     onVibrationChanged: (Boolean) -> Unit,
     onNormalVibrationLevelChanged: (Int) -> Unit,
     onCompleteVibrationLevelChanged: (Int) -> Unit,
@@ -144,6 +151,10 @@ private fun WorkoutSecondTimerScreen(
     var hasCenteredInitialSelection by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     val latestUiState by rememberUpdatedState(uiState)
+    val idleBackgroundColor = MaterialTheme.colorScheme.surfaceVariant
+    val timerBackgroundColor = remember(uiState, idleBackgroundColor) {
+        timerBackgroundColor(uiState, idleBackgroundColor)
+    }
 
     DisposableEffect(view, uiState.isRunning) {
         view.keepScreenOn = uiState.isRunning
@@ -231,7 +242,7 @@ private fun WorkoutSecondTimerScreen(
                 brush = Brush.verticalGradient(
                     colors = listOf(
                         MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceVariant,
+                        timerBackgroundColor,
                     )
                 )
             ),
@@ -480,6 +491,7 @@ private fun WorkoutSecondTimerScreen(
             uiState = uiState,
             onDismiss = { showSettingsDialog = false },
             onLoopChanged = onLoopChanged,
+            onMaxLoopCountChanged = onMaxLoopCountChanged,
             onCountSoundModeChanged = onCountSoundModeChanged,
             onEarlyTickVolumeChanged = onEarlyTickVolumeChanged,
             onTickVolumeChanged = onTickVolumeChanged,
@@ -495,6 +507,7 @@ private fun CountdownSoundSettingsDialog(
     uiState: WorkoutTimerUiState,
     onDismiss: () -> Unit,
     onLoopChanged: (Boolean) -> Unit,
+    onMaxLoopCountChanged: (Int) -> Unit,
     onCountSoundModeChanged: (CountSoundMode) -> Unit,
     onEarlyTickVolumeChanged: (Int) -> Unit,
     onTickVolumeChanged: (Int) -> Unit,
@@ -523,6 +536,13 @@ private fun CountdownSoundSettingsDialog(
                     checked = uiState.loopEnabled,
                     onCheckedChange = onLoopChanged,
                 )
+                if (uiState.loopEnabled) {
+                    LoopCountSelectorRow(
+                        label = stringResource(R.string.timer_loop_count_label),
+                        selectedCount = uiState.maxLoopCount,
+                        onCountSelected = onMaxLoopCountChanged,
+                    )
+                }
                 CountSoundModeSelectorRow(
                     selectedMode = uiState.countSoundMode,
                     onModeSelected = onCountSoundModeChanged,
@@ -566,6 +586,55 @@ private fun CountdownSoundSettingsDialog(
                         Text("閉じる")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoopCountSelectorRow(
+    label: String,
+    selectedCount: Int,
+    onCountSelected: (Int) -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = selectedCount.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items((MIN_LOOP_COUNT..MAX_LOOP_COUNT).toList()) { loopCount ->
+                FilterChip(
+                    selected = selectedCount == loopCount,
+                    onClick = { onCountSelected(loopCount) },
+                    label = { Text(loopCount.toString()) },
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = selectedCount == loopCount,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                    ),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                )
             }
         }
     }
@@ -818,5 +887,35 @@ private fun vibrate(
     when (event) {
         VibrationEvent.Tick -> vibrator.vibrate(tickDuration)
         VibrationEvent.LoopComplete -> vibrator.vibrate(completePattern, -1)
+    }
+}
+
+private fun timerBackgroundColor(
+    uiState: WorkoutTimerUiState,
+    idleBackgroundColor: Color,
+): Color {
+    if (uiState.sessionStatus == TimerSessionStatus.Completed) {
+        return ProgressCompleteBackground
+    }
+    if (!uiState.hasStarted || uiState.isPreparing) {
+        return idleBackgroundColor
+    }
+
+    val maxLoopCount = if (uiState.loopEnabled) uiState.maxLoopCount else 1
+    val currentLoopIndex = uiState.roundTripCount.coerceIn(1, maxLoopCount)
+    val loopsCompletedBeforeCurrent = (currentLoopIndex - 1).coerceAtLeast(0)
+    val phaseProgress = when (uiState.currentPhase) {
+        WorkoutPhase.Fast -> (uiState.selectedSeconds - uiState.remainingSeconds).toFloat() /
+            uiState.selectedSeconds.toFloat()
+        WorkoutPhase.Slow -> (uiState.remainingSeconds).toFloat() / uiState.selectedSeconds.toFloat()
+    }.coerceIn(0f, 1f)
+    val overallProgress = ((loopsCompletedBeforeCurrent + phaseProgress) / maxLoopCount.toFloat())
+        .coerceIn(0f, 1f)
+
+    return when {
+        overallProgress < 0.3f -> ProgressGreenBackground
+        overallProgress < 0.6f -> ProgressWarmLowBackground
+        overallProgress < 0.9f -> ProgressWarmMidBackground
+        else -> ProgressWarmHighBackground
     }
 }

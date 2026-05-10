@@ -25,6 +25,9 @@ import kotlin.math.max
 const val DEFAULT_SECONDS = 5
 const val MIN_SECONDS = 1
 const val MAX_SECONDS = 10
+const val MIN_LOOP_COUNT = 2
+const val MAX_LOOP_COUNT = 30
+const val DEFAULT_MAX_LOOP_COUNT = 10
 const val MIN_CUE_VOLUME = 0
 const val MAX_CUE_VOLUME = 100
 const val DEFAULT_EARLY_TICK_VOLUME = 45
@@ -86,6 +89,7 @@ data class WorkoutTimerUiState(
     val currentPhase: WorkoutPhase = WorkoutPhase.Fast,
     val roundTripCount: Int = INITIAL_ROUND_TRIP_COUNT,
     val loopEnabled: Boolean = false,
+    val maxLoopCount: Int = DEFAULT_MAX_LOOP_COUNT,
     val tickVibrationEnabled: Boolean = false,
     val loopVibrationEnabled: Boolean = true,
     val countdownSoundEnabled: Boolean = true,
@@ -197,6 +201,13 @@ class WorkoutSecondTimerViewModel(
 
     fun setLoopEnabled(enabled: Boolean) {
         _uiState.update { it.copy(loopEnabled = enabled) }
+        persistCurrentSettings()
+    }
+
+    fun setMaxLoopCount(value: Int) {
+        _uiState.update {
+            it.copy(maxLoopCount = value.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT))
+        }
         persistCurrentSettings()
     }
 
@@ -424,7 +435,7 @@ class WorkoutSecondTimerViewModel(
                     )
                 }
 
-                phaseFinished && _uiState.value.loopEnabled -> {
+                phaseFinished && _uiState.value.loopEnabled && roundTripCount < _uiState.value.maxLoopCount -> {
                     roundTripCount += 1
                     currentPhase = WorkoutPhase.Fast
                     currentPhaseStartedAtElapsedMs += engine.phaseDurationMs
@@ -473,6 +484,7 @@ class WorkoutSecondTimerViewModel(
                 currentPhase = currentPhase,
                 roundTripCount = roundTripCount,
                 loopEnabled = settings.loopEnabled,
+                maxLoopCount = settings.maxLoopCount,
                 tickVibrationEnabled = settings.tickVibrationEnabled,
                 loopVibrationEnabled = settings.loopVibrationEnabled,
                 countdownSoundEnabled = settings.countdownSoundEnabled,
@@ -700,6 +712,7 @@ class WorkoutSecondTimerViewModel(
                 WorkoutTimerSettings(
                     selectedSeconds = state.selectedSeconds,
                     loopEnabled = state.loopEnabled,
+                    maxLoopCount = state.maxLoopCount,
                     tickVibrationEnabled = state.tickVibrationEnabled,
                     loopVibrationEnabled = state.loopVibrationEnabled,
                     countdownSoundEnabled = state.countdownSoundEnabled,
