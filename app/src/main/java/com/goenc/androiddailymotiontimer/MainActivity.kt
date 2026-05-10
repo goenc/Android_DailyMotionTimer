@@ -75,11 +75,11 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 
 private val PreparationCountColor = Color(0xFFFF9800)
-private val ProgressGreenBackground = Color(0xFFE2F6E9)
-private val ProgressWarmLowBackground = Color(0xFFFFF1E0)
-private val ProgressWarmMidBackground = Color(0xFFFFE1C4)
-private val ProgressWarmHighBackground = Color(0xFFFFCCAA)
-private val ProgressCompleteBackground = Color(0xFFFFB680)
+private val ProgressGreenBackground = Color(0xFFD9F4D1)
+private val ProgressWarmLowBackground = Color(0xFFFFDA9E)
+private val ProgressWarmMidBackground = Color(0xFFFFBC73)
+private val ProgressWarmHighBackground = Color(0xFFFF9B47)
+private val ProgressCompleteBackground = Color(0xFFFF7A1A)
 
 class MainActivity : ComponentActivity() {
     private lateinit var timerViewModel: WorkoutSecondTimerViewModel
@@ -240,14 +240,7 @@ private fun WorkoutSecondTimerScreen(
     Surface(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        timerBackgroundColor,
-                    )
-                )
-            ),
+            .background(timerBackgroundColor),
         color = Color.Transparent,
     ) {
         BoxWithConstraints(
@@ -912,16 +905,12 @@ private fun timerBackgroundColor(
         return idleBackgroundColor
     }
 
-    val maxLoopCount = if (uiState.loopEnabled) uiState.maxLoopCount else 1
-    val currentLoopIndex = uiState.roundTripCount.coerceIn(1, maxLoopCount)
-    val loopsCompletedBeforeCurrent = (currentLoopIndex - 1).coerceAtLeast(0)
-    val phaseProgress = when (uiState.currentPhase) {
-        WorkoutPhase.Fast -> (uiState.selectedSeconds - uiState.remainingSeconds).toFloat() /
-            uiState.selectedSeconds.toFloat()
-        WorkoutPhase.Slow -> (uiState.remainingSeconds).toFloat() / uiState.selectedSeconds.toFloat()
-    }.coerceIn(0f, 1f)
-    val overallProgress = ((loopsCompletedBeforeCurrent + phaseProgress) / maxLoopCount.toFloat())
-        .coerceIn(0f, 1f)
+    val loopStepCount = (uiState.selectedSeconds * 2).coerceAtLeast(1)
+    val currentLoopStepCount = when (uiState.currentPhase) {
+        WorkoutPhase.Fast -> uiState.selectedSeconds - uiState.remainingSeconds
+        WorkoutPhase.Slow -> uiState.selectedSeconds + (uiState.selectedSeconds - uiState.remainingSeconds)
+    }.coerceIn(0, loopStepCount)
+    val overallProgress = currentLoopStepCount.toFloat() / loopStepCount.toFloat()
 
     return when {
         overallProgress < 0.3f -> ProgressGreenBackground
