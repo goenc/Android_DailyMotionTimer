@@ -248,7 +248,7 @@ private fun WorkoutSecondTimerScreen(
                     )
                 )
             ),
-        color = MaterialTheme.colorScheme.background.copy(alpha = 0.92f),
+        color = Color.Transparent,
     ) {
         BoxWithConstraints(
             modifier = Modifier.fillMaxSize(),
