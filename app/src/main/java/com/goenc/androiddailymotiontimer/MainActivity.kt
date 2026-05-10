@@ -60,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -910,13 +911,31 @@ private fun timerBackgroundColor(
     }
 
     val configuredLoopCount = uiState.maxLoopCount.coerceAtLeast(1)
-    val completedLoopCount = (uiState.roundTripCount - 1).coerceAtLeast(0)
-    val overallProgress = completedLoopCount.toFloat() / configuredLoopCount.toFloat()
+    val currentLoopIndex = uiState.roundTripCount.coerceIn(1, configuredLoopCount)
+    val overallProgress = if (configuredLoopCount == 1) {
+        0f
+    } else {
+        (currentLoopIndex - 1).toFloat() / (configuredLoopCount - 1).toFloat()
+    }
+
+    return progressPaletteColor(overallProgress)
+}
+
+private fun progressPaletteColor(progress: Float): Color {
+    val clampedProgress = progress.coerceIn(0f, 1f)
 
     return when {
-        overallProgress < 0.3f -> ProgressGreenBackground
-        overallProgress < 0.6f -> ProgressWarmLowBackground
-        overallProgress < 0.9f -> ProgressWarmMidBackground
-        else -> ProgressWarmHighBackground
+        clampedProgress < 0.33f -> {
+            val localProgress = clampedProgress / 0.33f
+            lerp(ProgressGreenBackground, ProgressWarmLowBackground, localProgress)
+        }
+        clampedProgress < 0.66f -> {
+            val localProgress = (clampedProgress - 0.33f) / 0.33f
+            lerp(ProgressWarmLowBackground, ProgressWarmMidBackground, localProgress)
+        }
+        else -> {
+            val localProgress = (clampedProgress - 0.66f) / 0.34f
+            lerp(ProgressWarmMidBackground, ProgressWarmHighBackground, localProgress)
+        }
     }
 }
