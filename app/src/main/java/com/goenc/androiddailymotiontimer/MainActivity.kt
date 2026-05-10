@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -523,6 +525,7 @@ private fun CountdownSoundSettingsDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -536,13 +539,12 @@ private fun CountdownSoundSettingsDialog(
                     checked = uiState.loopEnabled,
                     onCheckedChange = onLoopChanged,
                 )
-                if (uiState.loopEnabled) {
-                    LoopCountSelectorRow(
-                        label = stringResource(R.string.timer_loop_count_label),
-                        selectedCount = uiState.maxLoopCount,
-                        onCountSelected = onMaxLoopCountChanged,
-                    )
-                }
+                LoopCountSelectorRow(
+                    label = stringResource(R.string.timer_loop_count_label),
+                    selectedCount = uiState.maxLoopCount,
+                    enabled = uiState.loopEnabled,
+                    onCountSelected = onMaxLoopCountChanged,
+                )
                 CountSoundModeSelectorRow(
                     selectedMode = uiState.countSoundMode,
                     onModeSelected = onCountSoundModeChanged,
@@ -595,47 +597,56 @@ private fun CountdownSoundSettingsDialog(
 private fun LoopCountSelectorRow(
     label: String,
     selectedCount: Int,
+    enabled: Boolean,
     onCountSelected: (Int) -> Unit,
 ) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        tonalElevation = 2.dp,
+        shadowElevation = 0.dp,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = selectedCount.toString(),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items((MIN_LOOP_COUNT..MAX_LOOP_COUNT).toList()) { loopCount ->
-                FilterChip(
-                    selected = selectedCount == loopCount,
-                    onClick = { onCountSelected(loopCount) },
-                    label = { Text(loopCount.toString()) },
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = selectedCount == loopCount,
-                        borderColor = MaterialTheme.colorScheme.outlineVariant,
-                        selectedBorderColor = MaterialTheme.colorScheme.primary,
-                    ),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = "$selectedCount 回",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
+            Text(
+                text = if (enabled) {
+                    "ループ切り替えのすぐ下で最大回数を設定できます"
+                } else {
+                    "ループをONにすると最大回数を設定できます"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Slider(
+                value = selectedCount.toFloat(),
+                onValueChange = { onCountSelected(it.toInt()) },
+                valueRange = MIN_LOOP_COUNT.toFloat()..MAX_LOOP_COUNT.toFloat(),
+                steps = MAX_LOOP_COUNT - MIN_LOOP_COUNT - 1,
+                enabled = enabled,
+            )
         }
     }
 }
