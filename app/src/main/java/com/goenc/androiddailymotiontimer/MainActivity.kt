@@ -271,11 +271,18 @@ private fun WorkoutSecondTimerScreen(
                 else -> 44.sp
             }
             val roundTripFontSize = when {
-                maxHeight < 620.dp -> 28.sp
-                maxHeight < 760.dp -> 30.sp
-                else -> 32.sp
+                maxHeight < 620.dp -> 52.sp
+                maxHeight < 700.dp -> 56.sp
+                maxHeight < 760.dp -> 60.sp
+                else -> 64.sp
             }
-            val countSectionSpacing = if (compactLayout) 4.dp else 6.dp
+            val roundTripLineHeight = when {
+                maxHeight < 620.dp -> 54.sp
+                maxHeight < 700.dp -> 58.sp
+                maxHeight < 760.dp -> 62.sp
+                else -> 66.sp
+            }
+            val countSectionSpacing = if (compactLayout) 2.dp else 4.dp
             val secondChipWidth = 72.dp
             val secondChipSpacing = 8.dp
             val secondsRowHorizontalPadding = maxOf(0.dp, (maxWidth - secondChipWidth) / 2)
@@ -327,9 +334,9 @@ private fun WorkoutSecondTimerScreen(
                     .safeDrawingPadding()
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(if (compactLayout) 8.dp else 10.dp),
+                verticalArrangement = Arrangement.spacedBy(if (compactLayout) 6.dp else 8.dp),
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -397,7 +404,7 @@ private fun WorkoutSecondTimerScreen(
                     Text(
                         text = stringResource(R.string.round_trip_count, uiState.roundTripCount),
                         fontSize = roundTripFontSize,
-                        lineHeight = roundTripFontSize,
+                        lineHeight = roundTripLineHeight,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
