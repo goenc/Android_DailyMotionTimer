@@ -81,6 +81,7 @@ private val ProgressWarmLowBackground = Color(0xFFFFDA9E)
 private val ProgressWarmMidBackground = Color(0xFFFFBC73)
 private val ProgressWarmHighBackground = Color(0xFFFF9B47)
 private val ProgressCompleteBackground = Color(0xFFFF7A1A)
+private val RunningInfoTextColor = Color(0xFF111111)
 
 class MainActivity : ComponentActivity() {
     private lateinit var timerViewModel: WorkoutSecondTimerViewModel
@@ -385,32 +386,46 @@ private fun WorkoutSecondTimerScreen(
                         color = if (uiState.isPreparing) {
                             PreparationCountColor
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            RunningInfoTextColor
                         },
                     )
-                    Spacer(modifier = Modifier.height(countSectionSpacing))
-                    Text(
-                        text = uiState.displaySeconds.toString(),
-                        fontSize = countFontSize,
-                        lineHeight = countLineHeight,
-                        fontWeight = FontWeight.Black,
-                        textAlign = TextAlign.Center,
-                        softWrap = false,
-                        maxLines = 1,
-                        modifier = Modifier.fillMaxWidth(),
-                        color = countColor,
-                    )
-                    Spacer(modifier = Modifier.height(countSectionSpacing))
-                    Text(
-                        text = stringResource(R.string.round_trip_count, uiState.roundTripCount),
-                        fontSize = roundTripFontSize,
-                        lineHeight = roundTripLineHeight,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (uiState.sessionStatus == TimerSessionStatus.Completed) {
+                        Spacer(modifier = Modifier.height(countSectionSpacing))
+                        Text(
+                            text = stringResource(R.string.timer_completed_rounds, uiState.maxLoopCount),
+                            fontSize = roundTripFontSize,
+                            lineHeight = roundTripLineHeight,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = RunningInfoTextColor,
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(countSectionSpacing))
+                        Text(
+                            text = uiState.displaySeconds.toString(),
+                            fontSize = countFontSize,
+                            lineHeight = countLineHeight,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center,
+                            softWrap = false,
+                            maxLines = 1,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = countColor,
+                        )
+                        Spacer(modifier = Modifier.height(countSectionSpacing))
+                        Text(
+                            text = stringResource(R.string.round_trip_count, uiState.roundTripCount),
+                            fontSize = roundTripFontSize,
+                            lineHeight = roundTripLineHeight,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = RunningInfoTextColor,
+                        )
+                    }
                 }
 
                 LazyRow(
