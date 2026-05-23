@@ -12,8 +12,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -61,8 +63,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.ViewModelProvider
 import com.goenc.androiddailymotiontimer.ui.theme.AndroidDailyMotionTimerTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 
@@ -153,6 +158,7 @@ private fun WorkoutSecondTimerScreen(
     val secondOptions = (MIN_SECONDS..MAX_SECONDS).toList()
     val secondListState = rememberLazyListState()
     var hasCenteredInitialSelection by remember { mutableStateOf(false) }
+    var showLaunchOverlay by remember { mutableStateOf(true) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     val latestUiState by rememberUpdatedState(uiState)
     val idleBackgroundColor = MaterialTheme.colorScheme.surfaceVariant
@@ -239,16 +245,24 @@ private fun WorkoutSecondTimerScreen(
         countdownCuePlayer.stop()
     }
 
+    LaunchedEffect(hasCenteredInitialSelection) {
+        if (hasCenteredInitialSelection) {
+            delay(250)
+            showLaunchOverlay = false
+        }
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxSize()
             .background(timerBackgroundColor),
         color = Color.Transparent,
     ) {
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            val compactLayout = maxHeight < 760.dp
+        Box(modifier = Modifier.fillMaxSize()) {
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                val compactLayout = maxHeight < 760.dp
             val countFontSize = when {
                 maxHeight < 620.dp -> 132.sp
                 maxHeight < 700.dp -> 154.sp
@@ -329,7 +343,7 @@ private fun WorkoutSecondTimerScreen(
                 }
             }
 
-            Column(
+                Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .safeDrawingPadding()
@@ -500,6 +514,16 @@ private fun WorkoutSecondTimerScreen(
                         )
                     }
                 }
+                }
+            }
+
+            if (showLaunchOverlay) {
+                Image(
+                    painter = painterResource(id = R.drawable.splash_background),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
     }
