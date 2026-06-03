@@ -69,7 +69,6 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -169,7 +168,6 @@ private fun WorkoutSecondTimerScreen(
     val context = LocalContext.current
     val secondOptions = (MIN_SECONDS..MAX_SECONDS).toList()
     val secondListState = rememberLazyListState()
-    val density = LocalDensity.current
     var hasCenteredInitialSelection by remember { mutableStateOf(false) }
     var showLaunchOverlay by remember { mutableStateOf(true) }
     var showSettingsDialog by remember { mutableStateOf(false) }
@@ -314,8 +312,6 @@ private fun WorkoutSecondTimerScreen(
             val secondChipWidth = 72.dp
             val secondChipSpacing = 8.dp
             val secondsRowHorizontalPadding = maxOf(0.dp, (maxWidth - secondChipWidth) / 2)
-            val secondsRowCenterOffset = with(density) { secondsRowHorizontalPadding.roundToPx() }
-            val selectedIndex = uiState.selectedSeconds - MIN_SECONDS
             val phaseLabel = when {
                 uiState.isPreparing -> stringResource(R.string.timer_phase_preparation)
                 uiState.sessionStatus == TimerSessionStatus.Completed ->
@@ -345,14 +341,16 @@ private fun WorkoutSecondTimerScreen(
                 stringResource(R.string.timer_action_pause)
             }
 
-            LaunchedEffect(uiState.timerMode, uiState.selectedSeconds) {
-                if (uiState.timerMode != TimerMode.Motion) return@LaunchedEffect
-                if (hasCenteredInitialSelection) {
-                    secondListState.animateScrollToItem(selectedIndex, secondsRowCenterOffset)
-                } else {
-                    secondListState.scrollToItem(selectedIndex, secondsRowCenterOffset)
-                    hasCenteredInitialSelection = true
+            LaunchedEffect(Unit) {
+                while (secondListState.layoutInfo.viewportSize.width == 0) {
+                    delay(16)
                 }
+                delay(100)
+                if (latestUiState.timerMode == TimerMode.Motion) {
+                    val startupSelectedIndex = latestUiState.selectedSeconds - MIN_SECONDS
+                    secondListState.scrollToItem(startupSelectedIndex)
+                }
+                hasCenteredInitialSelection = true
             }
 
             LaunchedEffect(uiState.canChangeSeconds) {
