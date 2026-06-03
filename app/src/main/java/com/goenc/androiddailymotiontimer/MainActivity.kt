@@ -502,7 +502,6 @@ private fun WorkoutSecondTimerScreen(
                             label = stringResource(R.string.timer_loop_count_label),
                             selectedCount = uiState.maxLoopCount,
                             enabled = true,
-                            helperText = stringResource(R.string.normal_count_setting_hint),
                             onCountSelected = onMaxLoopCountChanged,
                         )
                     }
@@ -673,11 +672,6 @@ private fun CountdownSoundSettingsDialog(
                     label = stringResource(R.string.timer_loop_count_label),
                     selectedCount = uiState.maxLoopCount,
                     enabled = uiState.loopEnabled || uiState.timerMode == TimerMode.NormalCount,
-                    helperText = if (uiState.loopEnabled || uiState.timerMode == TimerMode.NormalCount) {
-                        "ループ切り替えのすぐ下で最大回数を設定できます"
-                    } else {
-                        "ループをONにすると最大回数を設定できます"
-                    },
                     onCountSelected = onMaxLoopCountChanged,
                 )
                 TimerToggleRow(
@@ -743,7 +737,6 @@ private fun LoopCountSelectorRow(
     label: String,
     selectedCount: Int,
     enabled: Boolean,
-    helperText: String,
     onCountSelected: (Int) -> Unit,
 ) {
     Surface(
@@ -777,11 +770,6 @@ private fun LoopCountSelectorRow(
                     },
                 )
             }
-            Text(
-                text = helperText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             Slider(
                 value = selectedCount.toFloat(),
                 onValueChange = { onCountSelected(it.toInt()) },
