@@ -28,6 +28,7 @@ class CountdownVoicePlayer(context: Context) {
     private var pendingPlayback: PendingPlayback? = null
     private var textToSpeechReady = false
     private var pendingPhaseSpeech: PhaseSpeech? = null
+    private var pendingCountSpeech: CountSpeech? = null
     private var earlyTickVolume = DEFAULT_EARLY_TICK_VOLUME
     private var tickVolume = DEFAULT_TICK_VOLUME
     private var loopCompleteVolume = DEFAULT_LOOP_COMPLETE_VOLUME
@@ -42,8 +43,13 @@ class CountdownVoicePlayer(context: Context) {
                     pendingPhaseSpeech = null
                     speakPhaseCueNow(pendingSpeech)
                 }
+                pendingCountSpeech?.let { pendingSpeech ->
+                    pendingCountSpeech = null
+                    speakCountCueNow(pendingSpeech)
+                }
             } else {
                 pendingPhaseSpeech = null
+                pendingCountSpeech = null
                 Log.w(TAG, "Failed to initialize TextToSpeech status=$status")
             }
         }
@@ -80,8 +86,15 @@ class CountdownVoicePlayer(context: Context) {
             return
         }
 
+        if (count >= 11) {
+            pendingPlayback = null
+            speakCountCue(CountSpeech(count = count, cueType = cueType))
+            return
+        }
+
         val soundId = soundIds[count] ?: return
         pendingPhaseSpeech = null
+        pendingCountSpeech = null
         stopTextToSpeech()
         if (loadedSoundIds.contains(soundId)) {
             pendingPlayback = null
@@ -107,6 +120,7 @@ class CountdownVoicePlayer(context: Context) {
     fun stop() {
         pendingPlayback = null
         pendingPhaseSpeech = null
+        pendingCountSpeech = null
         stopTextToSpeech()
         stopActivePlayback()
     }
@@ -151,12 +165,24 @@ class CountdownVoicePlayer(context: Context) {
     private fun speakPhaseCue(phaseSpeech: PhaseSpeech) {
         stopActivePlayback()
         if (!textToSpeechReady) {
+            pendingCountSpeech = null
             pendingPhaseSpeech = phaseSpeech
             return
         }
         pendingPhaseSpeech = null
         // QUEUE_FLUSH already replaces the current utterance, so avoid an extra stop() here.
         speakPhaseCueNow(phaseSpeech)
+    }
+
+    private fun speakCountCue(countSpeech: CountSpeech) {
+        stopActivePlayback()
+        if (!textToSpeechReady) {
+            pendingPhaseSpeech = null
+            pendingCountSpeech = countSpeech
+            return
+        }
+        pendingCountSpeech = null
+        speakCountCueNow(countSpeech)
     }
 
     private fun speakPhaseCueNow(phaseSpeech: PhaseSpeech) {
@@ -178,6 +204,22 @@ class CountdownVoicePlayer(context: Context) {
         )
         if (status != TextToSpeech.SUCCESS) {
             Log.w(TAG, "Failed to speak countdown voice text=$speakText")
+        }
+    }
+
+    private fun speakCountCueNow(countSpeech: CountSpeech) {
+        val tts = textToSpeech ?: return
+        val params = Bundle().apply {
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, resolveVolume(countSpeech.cueType))
+        }
+        val status = tts.speak(
+            countSpeech.count.toString(),
+            TextToSpeech.QUEUE_FLUSH,
+            params,
+            "count-${countSpeech.count}",
+        )
+        if (status != TextToSpeech.SUCCESS) {
+            Log.w(TAG, "Failed to speak countdown count=${countSpeech.count}")
         }
     }
 
@@ -248,5 +290,10 @@ class CountdownVoicePlayer(context: Context) {
         val cueType: CountdownCueType,
         val voicePhase: WorkoutPhase,
         val voiceRoundTripCount: Int?,
+    )
+
+    private data class CountSpeech(
+        val count: Int,
+        val cueType: CountdownCueType,
     )
 }
