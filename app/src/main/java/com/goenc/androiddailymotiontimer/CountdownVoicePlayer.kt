@@ -5,8 +5,6 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import java.util.Locale
@@ -25,10 +23,8 @@ class CountdownVoicePlayer(context: Context) {
         .build()
     private val soundIds = mutableMapOf<Int, Int>()
     private val loadedSoundIds = mutableSetOf<Int>()
-    private val handler = Handler(Looper.getMainLooper())
-    private val pendingSoundStarts = mutableListOf<Runnable>()
     private var textToSpeech: TextToSpeech? = null
-    private val activeStreamIds = mutableListOf<Int>()
+    private var activeStreamId: Int? = null
     private var pendingPlayback: PendingPlayback? = null
     private var textToSpeechReady = false
     private var pendingPhaseSpeech: PhaseSpeech? = null
@@ -55,9 +51,9 @@ class CountdownVoicePlayer(context: Context) {
             if (status != 0) return@setOnLoadCompleteListener
             loadedSoundIds += soundId
             val queuedPlayback = pendingPlayback ?: return@setOnLoadCompleteListener
-            if (canPlayCountFromLoadedSounds(queuedPlayback.count)) {
+            if (soundIds[queuedPlayback.count] == soundId) {
                 pendingPlayback = null
-                playLoadedCount(queuedPlayback.count, queuedPlayback.cueType)
+                playLoadedSound(soundId, queuedPlayback.cueType)
             }
         }
         COUNT_RESOURCE_IDS.forEach { (count, resId) ->
@@ -84,14 +80,12 @@ class CountdownVoicePlayer(context: Context) {
             return
         }
 
-        if (!canPlayCount(count)) {
-            return
-        }
+        val soundId = soundIds[count] ?: return
         pendingPhaseSpeech = null
         stopTextToSpeech()
-        if (canPlayCountFromLoadedSounds(count)) {
+        if (loadedSoundIds.contains(soundId)) {
             pendingPlayback = null
-            playLoadedCount(count, cueType)
+            playLoadedSound(soundId, cueType)
         } else {
             stopActivePlayback()
             pendingPlayback = PendingPlayback(count = count, cueType = cueType)
@@ -124,43 +118,25 @@ class CountdownVoicePlayer(context: Context) {
     }
 
     private fun stopActivePlayback() {
-        pendingSoundStarts.forEach(handler::removeCallbacks)
-        pendingSoundStarts.clear()
-        activeStreamIds.forEach(soundPool::stop)
-        activeStreamIds.clear()
+        activeStreamId?.let(soundPool::stop)
+        activeStreamId = null
     }
 
     private fun stopTextToSpeech() {
         textToSpeech?.stop()
     }
 
-    private fun playLoadedCount(count: Int, cueType: CountdownCueType) {
-        val soundSequence = countSoundSequence(count) ?: return
-        playLoadedSoundSequence(soundSequence, cueType)
-    }
-
-    private fun playLoadedSoundSequence(soundSequence: List<Int>, cueType: CountdownCueType) {
+    private fun playLoadedSound(soundId: Int, cueType: CountdownCueType) {
         stopActivePlayback()
         val volume = resolveVolume(cueType)
         if (volume <= 0f) return
-
-        soundSequence.forEachIndexed { index, soundId ->
-            val action = Runnable {
-                val streamId = soundPool.play(soundId, volume, volume, 1, 0, 1f)
-                if (streamId == 0) {
-                    Log.w(TAG, "Failed to play countdown voice for soundId=$soundId")
-                    return@Runnable
-                }
-                activeStreamIds += streamId
-            }
-            pendingSoundStarts += action
-            val delayMs = COUNT_SOUND_SEQUENCE_INTERVAL_MS * index
-            if (delayMs == 0L) {
-                action.run()
-            } else {
-                handler.postDelayed(action, delayMs)
-            }
+        val streamId = soundPool.play(soundId, volume, volume, 1, 0, 1f)
+        if (streamId == 0) {
+            Log.w(TAG, "Failed to play countdown voice for soundId=$soundId")
+            activeStreamId = null
+            return
         }
+        activeStreamId = streamId
     }
 
     private fun resolveVolume(cueType: CountdownCueType): Float {
@@ -205,41 +181,49 @@ class CountdownVoicePlayer(context: Context) {
         }
     }
 
-    private fun canPlayCount(count: Int): Boolean {
-        return countSoundParts(count) != null
-    }
-
-    private fun canPlayCountFromLoadedSounds(count: Int): Boolean {
-        val soundSequence = countSoundSequence(count) ?: return false
-        return soundSequence.all(loadedSoundIds::contains)
-    }
-
-    private fun countSoundSequence(count: Int): List<Int>? {
-        val parts = countSoundParts(count) ?: return null
-        return parts.map { part -> soundIds[part] ?: return null }
-    }
-
-    private fun countSoundParts(count: Int): List<Int>? {
-        if (count in COUNT_RESOURCE_IDS.keys) return listOf(count)
-        if (count !in 11..MAX_LOOP_COUNT) return null
-
-        val tens = count / 10
-        val ones = count % 10
-        return buildList {
-            if (tens > 1) {
-                add(tens)
-            }
-            add(10)
-            if (ones > 0) {
-                add(ones)
-            }
-        }
-    }
-
     private companion object {
         private const val TAG = "CountdownVoicePlayer"
-        private const val COUNT_SOUND_SEQUENCE_INTERVAL_MS = 320L
         private val COUNT_RESOURCE_IDS = mapOf(
+            50 to R.raw.count_50,
+            49 to R.raw.count_49,
+            48 to R.raw.count_48,
+            47 to R.raw.count_47,
+            46 to R.raw.count_46,
+            45 to R.raw.count_45,
+            44 to R.raw.count_44,
+            43 to R.raw.count_43,
+            42 to R.raw.count_42,
+            41 to R.raw.count_41,
+            40 to R.raw.count_40,
+            39 to R.raw.count_39,
+            38 to R.raw.count_38,
+            37 to R.raw.count_37,
+            36 to R.raw.count_36,
+            35 to R.raw.count_35,
+            34 to R.raw.count_34,
+            33 to R.raw.count_33,
+            32 to R.raw.count_32,
+            31 to R.raw.count_31,
+            30 to R.raw.count_30,
+            29 to R.raw.count_29,
+            28 to R.raw.count_28,
+            27 to R.raw.count_27,
+            26 to R.raw.count_26,
+            25 to R.raw.count_25,
+            24 to R.raw.count_24,
+            23 to R.raw.count_23,
+            22 to R.raw.count_22,
+            21 to R.raw.count_21,
+            20 to R.raw.count_20,
+            19 to R.raw.count_19,
+            18 to R.raw.count_18,
+            17 to R.raw.count_17,
+            16 to R.raw.count_16,
+            15 to R.raw.count_15,
+            14 to R.raw.count_14,
+            13 to R.raw.count_13,
+            12 to R.raw.count_12,
+            11 to R.raw.count_11,
             10 to R.raw.count_10,
             9 to R.raw.count_9,
             8 to R.raw.count_8,
