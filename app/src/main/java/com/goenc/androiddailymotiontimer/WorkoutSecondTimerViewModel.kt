@@ -48,8 +48,14 @@ private const val ACTIVE_ELAPSED_MS_KEY = "active_elapsed_ms"
 private const val PHASE_STARTED_AT_MS_KEY = "phase_started_at_ms"
 private const val NEXT_BOUNDARY_INDEX_KEY = "next_boundary_index"
 private const val REMAINING_SECONDS_KEY = "remaining_seconds"
+private const val NORMAL_COUNT_KEY = "normal_count"
 private const val PREPARATION_ELAPSED_MS_KEY = "preparation_elapsed_ms"
 private const val PREPARATION_REMAINING_SECONDS_KEY = "preparation_remaining_seconds"
+
+enum class TimerMode {
+    Motion,
+    NormalCount,
+}
 
 enum class CountSoundMode {
     Beep,
@@ -81,8 +87,10 @@ enum class TimerSessionStatus {
 }
 
 data class WorkoutTimerUiState(
+    val timerMode: TimerMode = TimerMode.Motion,
     val selectedSeconds: Int = DEFAULT_SECONDS,
     val remainingSeconds: Int = DEFAULT_SECONDS,
+    val normalCount: Int = INITIAL_ROUND_TRIP_COUNT,
     val preparationRemainingSeconds: Int = PREPARATION_SECONDS,
     val elapsedTimeText: String = "00:00",
     val sessionStatus: TimerSessionStatus = TimerSessionStatus.Idle,
@@ -120,7 +128,10 @@ data class WorkoutTimerUiState(
             sessionStatus == TimerSessionStatus.ActivePaused
 
     val canChangeSeconds: Boolean
-        get() = sessionStatus == TimerSessionStatus.Idle
+        get() = sessionStatus == TimerSessionStatus.Idle && timerMode == TimerMode.Motion
+
+    val canChangeTimerMode: Boolean
+        get() = sessionStatus == TimerSessionStatus.Idle || sessionStatus == TimerSessionStatus.Completed
 
     val primaryButtonShowsStart: Boolean
         get() = sessionStatus == TimerSessionStatus.Idle || sessionStatus == TimerSessionStatus.Completed
@@ -133,7 +144,13 @@ data class WorkoutTimerUiState(
         get() = sessionStatus.isRunning || sessionStatus.isPaused
 
     val displaySeconds: Int
-        get() = if (isPreparing) preparationRemainingSeconds else remainingSeconds
+        get() = if (isPreparing) {
+            preparationRemainingSeconds
+        } else if (timerMode == TimerMode.NormalCount) {
+            normalCount
+        } else {
+            remainingSeconds
+        }
 }
 
 enum class VibrationEvent {
@@ -177,6 +194,7 @@ class WorkoutSecondTimerViewModel(
     private var currentPhaseStartedAtElapsedMs: Long = 0L
     private var nextBoundaryIndex: Int = 1
     private var displayedRemainingSeconds: Int = DEFAULT_SECONDS
+    private var displayedNormalCount: Int = INITIAL_ROUND_TRIP_COUNT
     private var preparationElapsedMs: Long = 0L
     private var preparationRunStartedAtMs: Long? = null
     private var displayedPreparationSeconds: Int = PREPARATION_SECONDS
@@ -187,6 +205,16 @@ class WorkoutSecondTimerViewModel(
         scope.launch {
             restoreSettings()
         }
+    }
+
+    fun setTimerMode(mode: TimerMode) {
+        val state = _uiState.value
+        if (!state.canChangeTimerMode || state.timerMode == mode) return
+        resetAllProgress(state.selectedSeconds, resetRoundTrips = true)
+        sessionStatus = TimerSessionStatus.Idle
+        publishUiState()
+        _uiState.update { it.copy(timerMode = mode) }
+        persistCurrentSettings()
     }
 
     fun setSelectedSeconds(seconds: Int) {
@@ -405,6 +433,11 @@ class WorkoutSecondTimerViewModel(
     }
 
     private suspend fun updateActiveTimerState() {
+        if (_uiState.value.timerMode == TimerMode.NormalCount) {
+            updateNormalCountTimerState()
+            return
+        }
+
         val state = _uiState.value
         val engine = WorkoutTimerEngine(state.selectedSeconds)
         val totalActiveElapsedMs = currentActiveElapsedMs()
@@ -471,13 +504,44 @@ class WorkoutSecondTimerViewModel(
         publishUiState(activeElapsedMsSnapshot = totalActiveElapsedMs)
     }
 
+    private suspend fun updateNormalCountTimerState() {
+        val state = _uiState.value
+        val totalActiveElapsedMs = currentActiveElapsedMs()
+        val maxCount = state.maxLoopCount.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)
+        val currentDisplay = ((totalActiveElapsedMs / 1_000L).toInt() + 1)
+            .coerceIn(INITIAL_ROUND_TRIP_COUNT, maxCount)
+
+        if (currentDisplay != displayedNormalCount) {
+            displayedNormalCount = currentDisplay
+            roundTripCount = currentDisplay
+            emitCountSwitchEffects(state, displayedNormalCount)
+        }
+
+        if (totalActiveElapsedMs >= maxCount * 1_000L) {
+            activeElapsedMs = maxCount * 1_000L
+            activeRunStartedAtMs = null
+            timerJob?.cancel()
+            timerJob = null
+            sessionStatus = TimerSessionStatus.Completed
+            displayedNormalCount = maxCount
+            roundTripCount = maxCount
+            emitCountSwitchEffects(state, 0)
+            publishUiState(activeElapsedMsSnapshot = activeElapsedMs)
+            return
+        }
+
+        publishUiState(activeElapsedMsSnapshot = totalActiveElapsedMs)
+    }
+
     private suspend fun restoreSettings() {
         val settings = settingsStore.settings.first()
         restoreSessionState(settings.selectedSeconds)
         _uiState.update { state ->
             state.copy(
+                timerMode = settings.timerMode,
                 selectedSeconds = settings.selectedSeconds,
                 remainingSeconds = displayedRemainingSeconds,
+                normalCount = displayedNormalCount,
                 preparationRemainingSeconds = displayedPreparationSeconds,
                 elapsedTimeText = formatElapsedTime(activeElapsedMs),
                 sessionStatus = sessionStatus,
@@ -523,6 +587,10 @@ class WorkoutSecondTimerViewModel(
             ?: 1).coerceIn(1, engine.boundaryCount + 1)
         displayedRemainingSeconds = (savedStateHandle.get<Int>(REMAINING_SECONDS_KEY)
             ?: engine.initialDisplayValue()).coerceIn(0, selectedSeconds)
+        displayedNormalCount = max(
+            INITIAL_ROUND_TRIP_COUNT,
+            savedStateHandle.get<Int>(NORMAL_COUNT_KEY) ?: INITIAL_ROUND_TRIP_COUNT,
+        )
         preparationElapsedMs = max(0L, savedStateHandle.get<Long>(PREPARATION_ELAPSED_MS_KEY) ?: 0L)
         displayedPreparationSeconds = (savedStateHandle.get<Int>(PREPARATION_REMAINING_SECONDS_KEY)
             ?: PREPARATION_SECONDS).coerceIn(0, PREPARATION_SECONDS)
@@ -574,10 +642,15 @@ class WorkoutSecondTimerViewModel(
         hasPlayedActiveInitialDisplayCue = false
         publishUiState(activeElapsedMsSnapshot = activeElapsedMs, preparationElapsedMsSnapshot = 0L)
         if (playInitialCue) {
-            // Emit the first active-phase cue immediately after the display switches.
+            val state = _uiState.value
+            val displayedValue = if (state.timerMode == TimerMode.NormalCount) {
+                displayedNormalCount
+            } else {
+                displayedRemainingSeconds
+            }
             emitInitialDisplayCueIfNeeded(
-                state = _uiState.value,
-                displayedValue = displayedRemainingSeconds,
+                state = state,
+                displayedValue = displayedValue,
                 isPreparationCue = false,
             )
         }
@@ -593,6 +666,7 @@ class WorkoutSecondTimerViewModel(
         currentPhaseStartedAtElapsedMs = 0L
         nextBoundaryIndex = 1
         displayedRemainingSeconds = WorkoutTimerEngine(selectedSeconds).initialDisplayValue()
+        displayedNormalCount = INITIAL_ROUND_TRIP_COUNT
         preparationElapsedMs = 0L
         preparationRunStartedAtMs = null
         displayedPreparationSeconds = PREPARATION_SECONDS
@@ -611,6 +685,7 @@ class WorkoutSecondTimerViewModel(
         _uiState.update { state ->
             state.copy(
                 remainingSeconds = displayedRemainingSeconds,
+                normalCount = displayedNormalCount,
                 preparationRemainingSeconds = displayedPreparationSeconds,
                 elapsedTimeText = formatElapsedTime(activeElapsedMsSnapshot),
                 sessionStatus = sessionStatus,
@@ -654,8 +729,16 @@ class WorkoutSecondTimerViewModel(
         emitCountdownSound(
             displayedValue = displayedValue,
             countdownSoundEnabled = state.countdownSoundEnabled,
-            voicePhase = if (isPreparationCue) null else currentPhase,
-            voiceRoundTripCount = if (!isPreparationCue && currentPhase == WorkoutPhase.Fast) {
+            voicePhase = if (isPreparationCue || state.timerMode == TimerMode.NormalCount) {
+                null
+            } else {
+                currentPhase
+            },
+            voiceRoundTripCount = if (
+                !isPreparationCue &&
+                state.timerMode == TimerMode.Motion &&
+                currentPhase == WorkoutPhase.Fast
+            ) {
                 roundTripCount
             } else {
                 null
@@ -710,6 +793,7 @@ class WorkoutSecondTimerViewModel(
         scope.launch {
             settingsStore.save(
                 WorkoutTimerSettings(
+                    timerMode = state.timerMode,
                     selectedSeconds = state.selectedSeconds,
                     loopEnabled = state.loopEnabled,
                     maxLoopCount = state.maxLoopCount,
@@ -745,6 +829,7 @@ class WorkoutSecondTimerViewModel(
         savedStateHandle[PHASE_STARTED_AT_MS_KEY] = currentPhaseStartedAtElapsedMs
         savedStateHandle[NEXT_BOUNDARY_INDEX_KEY] = nextBoundaryIndex
         savedStateHandle[REMAINING_SECONDS_KEY] = displayedRemainingSeconds
+        savedStateHandle[NORMAL_COUNT_KEY] = displayedNormalCount
         savedStateHandle[PREPARATION_ELAPSED_MS_KEY] = preparationElapsedMsSnapshot
         savedStateHandle[PREPARATION_REMAINING_SECONDS_KEY] = displayedPreparationSeconds
     }

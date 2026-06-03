@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 data class WorkoutTimerSettings(
+    val timerMode: TimerMode = TimerMode.Motion,
     val selectedSeconds: Int = DEFAULT_SECONDS,
     val loopEnabled: Boolean = false,
     val maxLoopCount: Int = DEFAULT_MAX_LOOP_COUNT,
@@ -31,6 +32,9 @@ class WorkoutSettingsStore(context: Context) {
 
     val settings: Flow<WorkoutTimerSettings> = dataStore.data.map { preferences ->
         WorkoutTimerSettings(
+            timerMode = TimerMode.entries.getOrElse(
+                preferences[TIMER_MODE_KEY] ?: TimerMode.Motion.ordinal
+            ) { TimerMode.Motion },
             selectedSeconds = (preferences[SELECTED_SECONDS_KEY] ?: DEFAULT_SECONDS)
                 .coerceIn(MIN_SECONDS, MAX_SECONDS),
             loopEnabled = preferences[LOOP_ENABLED_KEY] ?: false,
@@ -59,6 +63,7 @@ class WorkoutSettingsStore(context: Context) {
 
     suspend fun save(settings: WorkoutTimerSettings) {
         dataStore.edit { preferences ->
+            preferences[TIMER_MODE_KEY] = settings.timerMode.ordinal
             preferences[SELECTED_SECONDS_KEY] = settings.selectedSeconds
             preferences[LOOP_ENABLED_KEY] = settings.loopEnabled
             preferences[MAX_LOOP_COUNT_KEY] =
@@ -83,6 +88,7 @@ class WorkoutSettingsStore(context: Context) {
         private const val MIN_VOLUME = 0
         private const val MAX_VOLUME = 100
 
+        private val TIMER_MODE_KEY = intPreferencesKey("timer_mode")
         private val SELECTED_SECONDS_KEY = intPreferencesKey("selected_seconds")
         private val LOOP_ENABLED_KEY = booleanPreferencesKey("loop_enabled")
         private val MAX_LOOP_COUNT_KEY = intPreferencesKey("max_loop_count")

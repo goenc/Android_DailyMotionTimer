@@ -8,9 +8,13 @@
     <string name="timer_phase_preparation">準備</string>
     <string name="timer_phase_fast">下降</string>
     <string name="timer_phase_slow">上昇</string>
+    <string name="timer_phase_normal_count">カウント</string>
     <string name="timer_phase_complete">完了</string>
     <string name="round_trip_count">回数 %1$d</string>
+    <string name="normal_count_limit">最大 %1$d回</string>
     <string name="timer_completed_rounds">%1$d回終了</string>
+    <string name="timer_mode_motion">上下</string>
+    <string name="timer_mode_normal_count">カウント</string>
     <string name="timer_toggle_loop">ループ</string>
     <string name="timer_loop_count_label">最大回数</string>
     <string name="timer_toggle_vibration">バイブ</string>

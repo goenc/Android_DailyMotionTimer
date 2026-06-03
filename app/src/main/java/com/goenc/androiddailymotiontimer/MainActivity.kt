@@ -47,6 +47,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -63,6 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -113,6 +116,7 @@ class MainActivity : ComponentActivity() {
                     onCompleteVibrationLevelChanged = timerViewModel::setCompleteVibrationLevel,
                     onCountdownSoundChanged = timerViewModel::setCountdownSoundEnabled,
                     onCountSoundModeChanged = timerViewModel::setCountSoundMode,
+                    onTimerModeSelected = timerViewModel::setTimerMode,
                     onEarlyTickVolumeChanged = timerViewModel::setEarlyTickVolume,
                     onTickVolumeChanged = timerViewModel::setTickVolume,
                     onLoopCompleteVolumeChanged = timerViewModel::setLoopCompleteVolume,
@@ -145,6 +149,7 @@ private fun WorkoutSecondTimerScreen(
     onCompleteVibrationLevelChanged: (Int) -> Unit,
     onCountdownSoundChanged: (Boolean) -> Unit,
     onCountSoundModeChanged: (CountSoundMode) -> Unit,
+    onTimerModeSelected: (TimerMode) -> Unit,
     onEarlyTickVolumeChanged: (Int) -> Unit,
     onTickVolumeChanged: (Int) -> Unit,
     onLoopCompleteVolumeChanged: (Int) -> Unit,
@@ -247,7 +252,7 @@ private fun WorkoutSecondTimerScreen(
 
     LaunchedEffect(hasCenteredInitialSelection) {
         if (hasCenteredInitialSelection) {
-            delay(250)
+            delay(1200)
             showLaunchOverlay = false
         }
     }
@@ -306,6 +311,9 @@ private fun WorkoutSecondTimerScreen(
                 uiState.isPreparing -> stringResource(R.string.timer_phase_preparation)
                 uiState.sessionStatus == TimerSessionStatus.Completed ->
                     stringResource(R.string.timer_phase_complete)
+
+                uiState.timerMode == TimerMode.NormalCount ->
+                    stringResource(R.string.timer_phase_normal_count)
 
                 uiState.currentPhase == WorkoutPhase.Fast ->
                     stringResource(R.string.timer_phase_fast)
@@ -379,6 +387,12 @@ private fun WorkoutSecondTimerScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                     )
+                    Spacer(modifier = Modifier.height(if (compactLayout) 4.dp else 6.dp))
+                    TimerModeTabs(
+                        selectedMode = uiState.timerMode,
+                        enabled = uiState.canChangeTimerMode,
+                        onModeSelected = onTimerModeSelected,
+                    )
                 }
 
                 Column(
@@ -430,7 +444,11 @@ private fun WorkoutSecondTimerScreen(
                         )
                         Spacer(modifier = Modifier.height(countSectionSpacing))
                         Text(
-                            text = stringResource(R.string.round_trip_count, uiState.roundTripCount),
+                            text = if (uiState.timerMode == TimerMode.NormalCount) {
+                                stringResource(R.string.normal_count_limit, uiState.maxLoopCount)
+                            } else {
+                                stringResource(R.string.round_trip_count, uiState.roundTripCount)
+                            },
                             fontSize = roundTripFontSize,
                             lineHeight = roundTripLineHeight,
                             fontWeight = FontWeight.SemiBold,
@@ -442,31 +460,33 @@ private fun WorkoutSecondTimerScreen(
                     }
                 }
 
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    state = secondListState,
-                    userScrollEnabled = uiState.canChangeSeconds,
-                    contentPadding = PaddingValues(horizontal = secondsRowHorizontalPadding),
-                    horizontalArrangement = Arrangement.spacedBy(secondChipSpacing),
-                ) {
-                    items(secondOptions) { second ->
-                        FilterChip(
-                            selected = uiState.selectedSeconds == second,
-                            onClick = { onSecondSelected(second) },
-                            label = { Text("${second}秒") },
-                            enabled = uiState.canChangeSeconds,
-                            modifier = Modifier.width(secondChipWidth),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = uiState.canChangeSeconds,
+                if (uiState.timerMode == TimerMode.Motion) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        state = secondListState,
+                        userScrollEnabled = uiState.canChangeSeconds,
+                        contentPadding = PaddingValues(horizontal = secondsRowHorizontalPadding),
+                        horizontalArrangement = Arrangement.spacedBy(secondChipSpacing),
+                    ) {
+                        items(secondOptions) { second ->
+                            FilterChip(
                                 selected = uiState.selectedSeconds == second,
-                                borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                selectedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            ),
-                        )
+                                onClick = { onSecondSelected(second) },
+                                label = { Text("${second}秒") },
+                                enabled = uiState.canChangeSeconds,
+                                modifier = Modifier.width(secondChipWidth),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = uiState.canChangeSeconds,
+                                    selected = uiState.selectedSeconds == second,
+                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                    selectedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                ),
+                            )
+                        }
                     }
                 }
 
@@ -518,12 +538,29 @@ private fun WorkoutSecondTimerScreen(
             }
 
             if (showLaunchOverlay) {
-                Image(
-                    painter = painterResource(id = R.drawable.splash_background),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Image(
+                        painter = painterResource(id = R.drawable.splash_background_optimized),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        alignment = Alignment.BottomEnd,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = 1.08f
+                                scaleY = 1.08f
+                                translationX = 84f
+                                translationY = 28f
+                            },
+                    )
+                    Text(
+                        text = "ロード中",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
             }
         }
     }
@@ -541,6 +578,41 @@ private fun WorkoutSecondTimerScreen(
             onNormalVibrationLevelChanged = onNormalVibrationLevelChanged,
             onCompleteVibrationLevelChanged = onCompleteVibrationLevelChanged,
         )
+    }
+}
+
+@Composable
+private fun TimerModeTabs(
+    selectedMode: TimerMode,
+    enabled: Boolean,
+    onModeSelected: (TimerMode) -> Unit,
+) {
+    val modes = listOf(TimerMode.Motion, TimerMode.NormalCount)
+    TabRow(
+        selectedTabIndex = modes.indexOf(selectedMode),
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.primary,
+    ) {
+        modes.forEach { mode ->
+            Tab(
+                selected = selectedMode == mode,
+                enabled = enabled || selectedMode == mode,
+                onClick = {
+                    if (enabled) {
+                        onModeSelected(mode)
+                    }
+                },
+                text = {
+                    Text(
+                        text = when (mode) {
+                            TimerMode.Motion -> stringResource(R.string.timer_mode_motion)
+                            TimerMode.NormalCount -> stringResource(R.string.timer_mode_normal_count)
+                        },
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
+            )
+        }
     }
 }
 
@@ -582,7 +654,7 @@ private fun CountdownSoundSettingsDialog(
                 LoopCountSelectorRow(
                     label = stringResource(R.string.timer_loop_count_label),
                     selectedCount = uiState.maxLoopCount,
-                    enabled = uiState.loopEnabled,
+                    enabled = uiState.loopEnabled || uiState.timerMode == TimerMode.NormalCount,
                     onCountSelected = onMaxLoopCountChanged,
                 )
                 CountSoundModeSelectorRow(
@@ -950,6 +1022,17 @@ private fun timerBackgroundColor(
     }
     if (!uiState.hasStarted || uiState.isPreparing) {
         return idleBackgroundColor
+    }
+
+    if (uiState.timerMode == TimerMode.NormalCount) {
+        val configuredCount = uiState.maxLoopCount.coerceAtLeast(1)
+        val currentCount = uiState.normalCount.coerceIn(1, configuredCount)
+        val overallProgress = if (configuredCount == 1) {
+            0f
+        } else {
+            (currentCount - 1).toFloat() / (configuredCount - 1).toFloat()
+        }
+        return progressPaletteColor(overallProgress)
     }
 
     if (!uiState.loopEnabled) {
