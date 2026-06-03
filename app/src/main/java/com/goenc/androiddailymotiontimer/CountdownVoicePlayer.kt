@@ -4,10 +4,16 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
-import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.util.Log
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 
 class CountdownVoicePlayer(context: Context) {
     private val appContext = context.applicationContext
@@ -28,10 +34,11 @@ class CountdownVoicePlayer(context: Context) {
     private var pendingPlayback: PendingPlayback? = null
     private var textToSpeechReady = false
     private var pendingPhaseSpeech: PhaseSpeech? = null
-    private var pendingCountSpeech: CountSpeech? = null
     private var earlyTickVolume = DEFAULT_EARLY_TICK_VOLUME
     private var tickVolume = DEFAULT_TICK_VOLUME
     private var loopCompleteVolume = DEFAULT_LOOP_COMPLETE_VOLUME
+    private val compositeVoiceDir = File(appContext.cacheDir, "countdown_voice")
+    private val baseClips by lazy { loadBaseClips() }
 
     init {
         textToSpeech = TextToSpeech(appContext) { status ->
@@ -43,13 +50,8 @@ class CountdownVoicePlayer(context: Context) {
                     pendingPhaseSpeech = null
                     speakPhaseCueNow(pendingSpeech)
                 }
-                pendingCountSpeech?.let { pendingSpeech ->
-                    pendingCountSpeech = null
-                    speakCountCueNow(pendingSpeech)
-                }
             } else {
                 pendingPhaseSpeech = null
-                pendingCountSpeech = null
                 Log.w(TAG, "Failed to initialize TextToSpeech status=$status")
             }
         }
@@ -87,14 +89,11 @@ class CountdownVoicePlayer(context: Context) {
         }
 
         if (count >= 11) {
-            pendingPlayback = null
-            speakCountCue(CountSpeech(count = count, cueType = cueType))
-            return
+            ensureCompositeSoundLoaded(count)
         }
 
         val soundId = soundIds[count] ?: return
         pendingPhaseSpeech = null
-        pendingCountSpeech = null
         stopTextToSpeech()
         if (loadedSoundIds.contains(soundId)) {
             pendingPlayback = null
@@ -120,7 +119,6 @@ class CountdownVoicePlayer(context: Context) {
     fun stop() {
         pendingPlayback = null
         pendingPhaseSpeech = null
-        pendingCountSpeech = null
         stopTextToSpeech()
         stopActivePlayback()
     }
@@ -165,24 +163,12 @@ class CountdownVoicePlayer(context: Context) {
     private fun speakPhaseCue(phaseSpeech: PhaseSpeech) {
         stopActivePlayback()
         if (!textToSpeechReady) {
-            pendingCountSpeech = null
             pendingPhaseSpeech = phaseSpeech
             return
         }
         pendingPhaseSpeech = null
         // QUEUE_FLUSH already replaces the current utterance, so avoid an extra stop() here.
         speakPhaseCueNow(phaseSpeech)
-    }
-
-    private fun speakCountCue(countSpeech: CountSpeech) {
-        stopActivePlayback()
-        if (!textToSpeechReady) {
-            pendingPhaseSpeech = null
-            pendingCountSpeech = countSpeech
-            return
-        }
-        pendingCountSpeech = null
-        speakCountCueNow(countSpeech)
     }
 
     private fun speakPhaseCueNow(phaseSpeech: PhaseSpeech) {
@@ -193,13 +179,10 @@ class CountdownVoicePlayer(context: Context) {
                 ?: appContext.getString(R.string.timer_phase_fast)
             WorkoutPhase.Slow -> appContext.getString(R.string.timer_phase_slow)
         }
-        val params = Bundle().apply {
-            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, resolveVolume(phaseSpeech.cueType))
-        }
         val status = tts.speak(
             speakText,
             TextToSpeech.QUEUE_FLUSH,
-            params,
+            null,
             "${phaseSpeech.count}-${phaseSpeech.voicePhase.name}-${phaseSpeech.voiceRoundTripCount ?: 0}",
         )
         if (status != TextToSpeech.SUCCESS) {
@@ -207,65 +190,197 @@ class CountdownVoicePlayer(context: Context) {
         }
     }
 
-    private fun speakCountCueNow(countSpeech: CountSpeech) {
-        val tts = textToSpeech ?: return
-        val params = Bundle().apply {
-            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, resolveVolume(countSpeech.cueType))
+    private fun ensureCompositeSoundLoaded(count: Int) {
+        if (soundIds.containsKey(count)) return
+        val outputFile = compositeVoiceFile(count)
+        if (!outputFile.exists()) {
+            generateCompositeVoiceFile(count, outputFile)
         }
-        val status = tts.speak(
-            countSpeech.count.toString(),
-            TextToSpeech.QUEUE_FLUSH,
-            params,
-            "count-${countSpeech.count}",
+        soundIds[count] = soundPool.load(outputFile.absolutePath, 1)
+    }
+
+    private fun compositeVoiceFile(count: Int): File {
+        if (!compositeVoiceDir.exists()) {
+            compositeVoiceDir.mkdirs()
+        }
+        return File(compositeVoiceDir, "count_$count.wav")
+    }
+
+    private fun generateCompositeVoiceFile(count: Int, outputFile: File) {
+        val parts = pronunciationParts(count).mapNotNull { baseClips[it] }
+        if (parts.isEmpty()) {
+            return
+        }
+        val mergedClip = mergeClips(parts)
+        FileOutputStream(outputFile).use { output ->
+            writeWaveFile(output, mergedClip)
+        }
+    }
+
+    private fun loadBaseClips(): Map<Int, PcmClip> {
+        return BASE_COUNT_RESOURCE_IDS.mapValues { (_, resId) ->
+            appContext.resources.openRawResource(resId).use(::readWaveFile)
+        }
+    }
+
+    private fun pronunciationParts(count: Int): List<Int> {
+        val tens = count / 10
+        val ones = count % 10
+        if (count in 11..19) {
+            return listOf(10, ones)
+        }
+        if (ones == 0) {
+            return listOf(tens, 10)
+        }
+        return listOf(tens, 10, ones)
+    }
+
+    private fun mergeClips(parts: List<PcmClip>): PcmClip {
+        val sampleRate = parts.first().sampleRate
+        val overlapSamples = (sampleRate * CROSSFADE_MS) / 1000
+        var mergedSamples = parts.first().trimmedSamples
+        parts.drop(1).forEach { clip ->
+            mergedSamples = crossfade(mergedSamples, clip.trimmedSamples, overlapSamples)
+        }
+        return PcmClip(
+            sampleRate = sampleRate,
+            channelCount = 1,
+            bitsPerSample = 16,
+            samples = mergedSamples,
         )
-        if (status != TextToSpeech.SUCCESS) {
-            Log.w(TAG, "Failed to speak countdown count=${countSpeech.count}")
+    }
+
+    private fun crossfade(first: ShortArray, second: ShortArray, overlapSamples: Int): ShortArray {
+        val actualOverlap = min(min(first.size, second.size), overlapSamples)
+        if (actualOverlap <= 0) {
+            return first + second
         }
+        val result = ShortArray(first.size + second.size - actualOverlap)
+        val cutPoint = first.size - actualOverlap
+        first.copyInto(result, endIndex = cutPoint)
+        for (index in 0 until actualOverlap) {
+            val firstWeight = (actualOverlap - index).toFloat() / actualOverlap.toFloat()
+            val secondWeight = index.toFloat() / actualOverlap.toFloat()
+            val mixed = (first[cutPoint + index] * firstWeight) + (second[index] * secondWeight)
+            result[cutPoint + index] = mixed.toInt()
+                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                .toShort()
+        }
+        second.copyInto(result, destinationOffset = first.size, startIndex = actualOverlap)
+        return result
+    }
+
+    private fun readWaveFile(input: InputStream): PcmClip {
+        val bytes = input.readBytes()
+        require(bytes.size > 44) { "Wave file too short" }
+        require(String(bytes, 0, 4) == "RIFF") { "Unsupported wave file header" }
+        val channelCount = littleEndianShort(bytes, 22)
+        val sampleRate = littleEndianInt(bytes, 24)
+        val bitsPerSample = littleEndianShort(bytes, 34)
+        require(channelCount == 1) { "Only mono wav files are supported" }
+        require(bitsPerSample == 16) { "Only 16-bit wav files are supported" }
+        val dataStart = findDataChunkStart(bytes)
+        val dataSize = littleEndianInt(bytes, dataStart - 4)
+        val sampleCount = dataSize / 2
+        val samples = ShortArray(sampleCount)
+        var byteIndex = dataStart
+        for (sampleIndex in 0 until sampleCount) {
+            samples[sampleIndex] = littleEndianShort(bytes, byteIndex).toShort()
+            byteIndex += 2
+        }
+        return PcmClip(
+            sampleRate = sampleRate,
+            channelCount = channelCount,
+            bitsPerSample = bitsPerSample,
+            samples = trimSilence(samples, sampleRate),
+        )
+    }
+
+    private fun trimSilence(samples: ShortArray, sampleRate: Int): ShortArray {
+        val paddingSamples = (sampleRate * SILENCE_PADDING_MS) / 1000
+        var startIndex = 0
+        while (startIndex < samples.size && abs(samples[startIndex].toInt()) < SILENCE_THRESHOLD) {
+            startIndex += 1
+        }
+        var endIndex = samples.lastIndex
+        while (endIndex >= startIndex && abs(samples[endIndex].toInt()) < SILENCE_THRESHOLD) {
+            endIndex -= 1
+        }
+        if (startIndex > endIndex) {
+            return samples
+        }
+        val trimmedStart = max(0, startIndex - paddingSamples)
+        val trimmedEnd = min(samples.size, endIndex + paddingSamples + 1)
+        return samples.copyOfRange(trimmedStart, trimmedEnd)
+    }
+
+    private fun writeWaveFile(output: FileOutputStream, clip: PcmClip) {
+        val dataSize = clip.samples.size * 2
+        val header = ByteArrayOutputStream(44).apply {
+            write("RIFF".toByteArray())
+            writeIntLE(36 + dataSize)
+            write("WAVE".toByteArray())
+            write("fmt ".toByteArray())
+            writeIntLE(16)
+            writeShortLE(1)
+            writeShortLE(clip.channelCount)
+            writeIntLE(clip.sampleRate)
+            writeIntLE(clip.sampleRate * clip.channelCount * 2)
+            writeShortLE(clip.channelCount * 2)
+            writeShortLE(16)
+            write("data".toByteArray())
+            writeIntLE(dataSize)
+        }.toByteArray()
+        output.write(header)
+        clip.samples.forEach { sample ->
+            output.write(sample.toInt() and 0xFF)
+            output.write((sample.toInt() shr 8) and 0xFF)
+        }
+    }
+
+    private fun ByteArrayOutputStream.writeIntLE(value: Int) {
+        write(value and 0xFF)
+        write((value shr 8) and 0xFF)
+        write((value shr 16) and 0xFF)
+        write((value shr 24) and 0xFF)
+    }
+
+    private fun ByteArrayOutputStream.writeShortLE(value: Int) {
+        write(value and 0xFF)
+        write((value shr 8) and 0xFF)
+    }
+
+    private fun littleEndianInt(bytes: ByteArray, offset: Int): Int {
+        return (bytes[offset].toInt() and 0xFF) or
+            ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
+            ((bytes[offset + 2].toInt() and 0xFF) shl 16) or
+            ((bytes[offset + 3].toInt() and 0xFF) shl 24)
+    }
+
+    private fun littleEndianShort(bytes: ByteArray, offset: Int): Int {
+        return (bytes[offset].toInt() and 0xFF) or
+            ((bytes[offset + 1].toInt() and 0xFF) shl 8)
+    }
+
+    private fun findDataChunkStart(bytes: ByteArray): Int {
+        var offset = 12
+        while (offset + 8 <= bytes.size) {
+            val chunkId = String(bytes, offset, 4)
+            val chunkSize = littleEndianInt(bytes, offset + 4)
+            if (chunkId == "data") {
+                return offset + 8
+            }
+            offset += 8 + chunkSize
+        }
+        error("Wave data chunk not found")
     }
 
     private companion object {
         private const val TAG = "CountdownVoicePlayer"
+        private const val SILENCE_THRESHOLD = 300
+        private const val SILENCE_PADDING_MS = 10
+        private const val CROSSFADE_MS = 40
         private val COUNT_RESOURCE_IDS = mapOf(
-            50 to R.raw.count_50,
-            49 to R.raw.count_49,
-            48 to R.raw.count_48,
-            47 to R.raw.count_47,
-            46 to R.raw.count_46,
-            45 to R.raw.count_45,
-            44 to R.raw.count_44,
-            43 to R.raw.count_43,
-            42 to R.raw.count_42,
-            41 to R.raw.count_41,
-            40 to R.raw.count_40,
-            39 to R.raw.count_39,
-            38 to R.raw.count_38,
-            37 to R.raw.count_37,
-            36 to R.raw.count_36,
-            35 to R.raw.count_35,
-            34 to R.raw.count_34,
-            33 to R.raw.count_33,
-            32 to R.raw.count_32,
-            31 to R.raw.count_31,
-            30 to R.raw.count_30,
-            29 to R.raw.count_29,
-            28 to R.raw.count_28,
-            27 to R.raw.count_27,
-            26 to R.raw.count_26,
-            25 to R.raw.count_25,
-            24 to R.raw.count_24,
-            23 to R.raw.count_23,
-            22 to R.raw.count_22,
-            21 to R.raw.count_21,
-            20 to R.raw.count_20,
-            19 to R.raw.count_19,
-            18 to R.raw.count_18,
-            17 to R.raw.count_17,
-            16 to R.raw.count_16,
-            15 to R.raw.count_15,
-            14 to R.raw.count_14,
-            13 to R.raw.count_13,
-            12 to R.raw.count_12,
-            11 to R.raw.count_11,
             10 to R.raw.count_10,
             9 to R.raw.count_9,
             8 to R.raw.count_8,
@@ -278,6 +393,7 @@ class CountdownVoicePlayer(context: Context) {
             1 to R.raw.count_1,
             0 to R.raw.count_0,
         )
+        private val BASE_COUNT_RESOURCE_IDS = COUNT_RESOURCE_IDS
     }
 
     private data class PendingPlayback(
@@ -292,8 +408,13 @@ class CountdownVoicePlayer(context: Context) {
         val voiceRoundTripCount: Int?,
     )
 
-    private data class CountSpeech(
-        val count: Int,
-        val cueType: CountdownCueType,
-    )
+    private data class PcmClip(
+        val sampleRate: Int,
+        val channelCount: Int,
+        val bitsPerSample: Int,
+        val samples: ShortArray,
+    ) {
+        val trimmedSamples: ShortArray
+            get() = samples
+    }
 }
