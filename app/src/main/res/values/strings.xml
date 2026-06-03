@@ -12,6 +12,9 @@
     <string name="timer_phase_complete">完了</string>
     <string name="round_trip_count">回数 %1$d</string>
     <string name="normal_count_limit">最大 %1$d回</string>
+    <string name="normal_count_limit_value">%1$d回</string>
+    <string name="normal_count_target_label">最大</string>
+    <string name="normal_count_setting_hint">開始前に最大回数をここで決められます</string>
     <string name="timer_completed_rounds">%1$d回終了</string>
     <string name="timer_mode_motion">上下</string>
     <string name="timer_mode_normal_count">カウント</string>

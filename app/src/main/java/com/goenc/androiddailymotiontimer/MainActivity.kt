@@ -442,21 +442,19 @@ private fun WorkoutSecondTimerScreen(
                             modifier = Modifier.fillMaxWidth(),
                             color = countColor,
                         )
-                        Spacer(modifier = Modifier.height(countSectionSpacing))
-                        Text(
-                            text = if (uiState.timerMode == TimerMode.NormalCount) {
-                                stringResource(R.string.normal_count_limit, uiState.maxLoopCount)
-                            } else {
-                                stringResource(R.string.round_trip_count, uiState.roundTripCount)
-                            },
-                            fontSize = roundTripFontSize,
-                            lineHeight = roundTripLineHeight,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            modifier = Modifier.fillMaxWidth(),
-                            color = RunningInfoTextColor,
-                        )
+                        if (uiState.timerMode == TimerMode.Motion) {
+                            Spacer(modifier = Modifier.height(countSectionSpacing))
+                            Text(
+                                text = stringResource(R.string.round_trip_count, uiState.roundTripCount),
+                                fontSize = roundTripFontSize,
+                                lineHeight = roundTripLineHeight,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                modifier = Modifier.fillMaxWidth(),
+                                color = RunningInfoTextColor,
+                            )
+                        }
                     }
                 }
 
@@ -488,6 +486,18 @@ private fun WorkoutSecondTimerScreen(
                             )
                         }
                     }
+                } else if (!uiState.hasStarted) {
+                    LoopCountSelectorRow(
+                        label = stringResource(R.string.timer_loop_count_label),
+                        selectedCount = uiState.maxLoopCount,
+                        enabled = true,
+                        helperText = stringResource(R.string.normal_count_setting_hint),
+                        onCountSelected = onMaxLoopCountChanged,
+                    )
+                } else {
+                    NormalCountTargetPanel(
+                        targetCount = uiState.maxLoopCount,
+                    )
                 }
 
                 Column(
@@ -655,6 +665,11 @@ private fun CountdownSoundSettingsDialog(
                     label = stringResource(R.string.timer_loop_count_label),
                     selectedCount = uiState.maxLoopCount,
                     enabled = uiState.loopEnabled || uiState.timerMode == TimerMode.NormalCount,
+                    helperText = if (uiState.loopEnabled || uiState.timerMode == TimerMode.NormalCount) {
+                        "ループ切り替えのすぐ下で最大回数を設定できます"
+                    } else {
+                        "ループをONにすると最大回数を設定できます"
+                    },
                     onCountSelected = onMaxLoopCountChanged,
                 )
                 CountSoundModeSelectorRow(
@@ -710,6 +725,7 @@ private fun LoopCountSelectorRow(
     label: String,
     selectedCount: Int,
     enabled: Boolean,
+    helperText: String,
     onCountSelected: (Int) -> Unit,
 ) {
     Surface(
@@ -744,11 +760,7 @@ private fun LoopCountSelectorRow(
                 )
             }
             Text(
-                text = if (enabled) {
-                    "ループ切り替えのすぐ下で最大回数を設定できます"
-                } else {
-                    "ループをONにすると最大回数を設定できます"
-                },
+                text = helperText,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -758,6 +770,37 @@ private fun LoopCountSelectorRow(
                 valueRange = MIN_LOOP_COUNT.toFloat()..MAX_LOOP_COUNT.toFloat(),
                 steps = MAX_LOOP_COUNT - MIN_LOOP_COUNT - 1,
                 enabled = enabled,
+            )
+        }
+    }
+}
+
+@Composable
+private fun NormalCountTargetPanel(
+    targetCount: Int,
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        tonalElevation = 2.dp,
+        shadowElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.normal_count_target_label),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stringResource(R.string.normal_count_limit_value, targetCount),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
     }
