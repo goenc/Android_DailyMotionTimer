@@ -530,24 +530,6 @@ private fun WorkoutSecondTimerScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        TimerToggleRow(
-                            label = stringResource(R.string.timer_toggle_vibration),
-                            checked = uiState.vibrationEnabled,
-                            onCheckedChange = onVibrationChanged,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TimerToggleRow(
-                            label = stringResource(R.string.timer_toggle_countdown_sound),
-                            checked = uiState.countdownSoundEnabled,
-                            onCheckedChange = onCountdownSoundChanged,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
                         TimerActionButton(
                             label = primaryButtonLabel,
                             onClick = onPrimaryAction,
@@ -603,6 +585,8 @@ private fun WorkoutSecondTimerScreen(
             onDismiss = { showSettingsDialog = false },
             onLoopChanged = onLoopChanged,
             onMaxLoopCountChanged = onMaxLoopCountChanged,
+            onVibrationChanged = onVibrationChanged,
+            onCountdownSoundChanged = onCountdownSoundChanged,
             onCountSoundModeChanged = onCountSoundModeChanged,
             onEarlyTickVolumeChanged = onEarlyTickVolumeChanged,
             onTickVolumeChanged = onTickVolumeChanged,
@@ -654,6 +638,8 @@ private fun CountdownSoundSettingsDialog(
     onDismiss: () -> Unit,
     onLoopChanged: (Boolean) -> Unit,
     onMaxLoopCountChanged: (Int) -> Unit,
+    onVibrationChanged: (Boolean) -> Unit,
+    onCountdownSoundChanged: (Boolean) -> Unit,
     onCountSoundModeChanged: (CountSoundMode) -> Unit,
     onEarlyTickVolumeChanged: (Int) -> Unit,
     onTickVolumeChanged: (Int) -> Unit,
@@ -693,6 +679,16 @@ private fun CountdownSoundSettingsDialog(
                         "ループをONにすると最大回数を設定できます"
                     },
                     onCountSelected = onMaxLoopCountChanged,
+                )
+                TimerToggleRow(
+                    label = stringResource(R.string.timer_toggle_vibration),
+                    checked = uiState.vibrationEnabled,
+                    onCheckedChange = onVibrationChanged,
+                )
+                TimerToggleRow(
+                    label = stringResource(R.string.timer_toggle_countdown_sound),
+                    checked = uiState.countdownSoundEnabled,
+                    onCheckedChange = onCountdownSoundChanged,
                 )
                 CountSoundModeSelectorRow(
                     selectedMode = uiState.countSoundMode,
