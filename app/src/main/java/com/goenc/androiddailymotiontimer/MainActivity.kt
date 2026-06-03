@@ -82,6 +82,7 @@ import com.goenc.androiddailymotiontimer.ui.theme.AndroidDailyMotionTimerTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlin.math.roundToInt
 
 private val PreparationCountColor = Color(0xFFFF9800)
 private val ProgressGreenBackground = Color(0xFFD9F4D1)
@@ -772,9 +773,12 @@ private fun LoopCountSelectorRow(
             }
             Slider(
                 value = selectedCount.toFloat(),
-                onValueChange = { onCountSelected(it.toInt()) },
+                onValueChange = {
+                    val snappedValue = (it / LOOP_COUNT_STEP.toFloat()).roundToInt() * LOOP_COUNT_STEP
+                    onCountSelected(snappedValue)
+                },
                 valueRange = MIN_LOOP_COUNT.toFloat()..MAX_LOOP_COUNT.toFloat(),
-                steps = MAX_LOOP_COUNT - MIN_LOOP_COUNT - 1,
+                steps = (MAX_LOOP_COUNT - MIN_LOOP_COUNT) / LOOP_COUNT_STEP - 1,
                 enabled = enabled,
             )
         }
@@ -1175,3 +1179,5 @@ private fun progressPaletteColor(progress: Float): Color {
         }
     }
 }
+
+private const val LOOP_COUNT_STEP = 5

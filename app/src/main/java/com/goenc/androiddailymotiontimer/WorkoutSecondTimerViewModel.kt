@@ -25,7 +25,7 @@ import kotlin.math.max
 const val DEFAULT_SECONDS = 5
 const val MIN_SECONDS = 1
 const val MAX_SECONDS = 10
-const val MIN_LOOP_COUNT = 2
+const val MIN_LOOP_COUNT = 5
 const val MAX_LOOP_COUNT = 50
 const val DEFAULT_MAX_LOOP_COUNT = 10
 const val DEFAULT_NORMAL_COUNT_INTERVAL_MS = 1_000L
