@@ -15,6 +15,10 @@
     <string name="normal_count_limit_value">%1$d回</string>
     <string name="normal_count_target_label">最大</string>
     <string name="normal_count_setting_hint">開始前に最大回数をここで決められます</string>
+    <string name="normal_count_interval_label">間隔</string>
+    <string name="normal_count_interval_small">小</string>
+    <string name="normal_count_interval_medium">中</string>
+    <string name="normal_count_interval_large">大</string>
     <string name="timer_completed_rounds">%1$d回終了</string>
     <string name="timer_mode_motion">上下</string>
     <string name="timer_mode_normal_count">カウント</string>

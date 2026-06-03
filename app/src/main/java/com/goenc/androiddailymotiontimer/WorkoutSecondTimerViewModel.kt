@@ -28,6 +28,7 @@ const val MAX_SECONDS = 10
 const val MIN_LOOP_COUNT = 2
 const val MAX_LOOP_COUNT = 50
 const val DEFAULT_MAX_LOOP_COUNT = 10
+const val DEFAULT_NORMAL_COUNT_INTERVAL_MS = 1_000L
 const val MIN_CUE_VOLUME = 0
 const val MAX_CUE_VOLUME = 100
 const val DEFAULT_EARLY_TICK_VOLUME = 45
@@ -49,6 +50,7 @@ private const val PHASE_STARTED_AT_MS_KEY = "phase_started_at_ms"
 private const val NEXT_BOUNDARY_INDEX_KEY = "next_boundary_index"
 private const val REMAINING_SECONDS_KEY = "remaining_seconds"
 private const val NORMAL_COUNT_KEY = "normal_count"
+private const val NORMAL_COUNT_INTERVAL_KEY = "normal_count_interval"
 private const val PREPARATION_ELAPSED_MS_KEY = "preparation_elapsed_ms"
 private const val PREPARATION_REMAINING_SECONDS_KEY = "preparation_remaining_seconds"
 
@@ -60,6 +62,14 @@ enum class TimerMode {
 enum class CountSoundMode {
     Beep,
     Voice,
+}
+
+enum class NormalCountInterval(
+    val durationMs: Long,
+) {
+    Small(750L),
+    Medium(DEFAULT_NORMAL_COUNT_INTERVAL_MS),
+    Large(1_500L),
 }
 
 enum class WorkoutPhase {
@@ -98,6 +108,7 @@ data class WorkoutTimerUiState(
     val roundTripCount: Int = INITIAL_ROUND_TRIP_COUNT,
     val loopEnabled: Boolean = false,
     val maxLoopCount: Int = DEFAULT_MAX_LOOP_COUNT,
+    val normalCountInterval: NormalCountInterval = NormalCountInterval.Medium,
     val tickVibrationEnabled: Boolean = false,
     val loopVibrationEnabled: Boolean = true,
     val countdownSoundEnabled: Boolean = true,
@@ -236,6 +247,13 @@ class WorkoutSecondTimerViewModel(
         _uiState.update {
             it.copy(maxLoopCount = value.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT))
         }
+        persistCurrentSettings()
+    }
+
+    fun setNormalCountInterval(interval: NormalCountInterval) {
+        val state = _uiState.value
+        if (state.timerMode != TimerMode.NormalCount || state.hasStarted) return
+        _uiState.update { it.copy(normalCountInterval = interval) }
         persistCurrentSettings()
     }
 
@@ -508,7 +526,8 @@ class WorkoutSecondTimerViewModel(
         val state = _uiState.value
         val totalActiveElapsedMs = currentActiveElapsedMs()
         val maxCount = state.maxLoopCount.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)
-        val currentDisplay = ((totalActiveElapsedMs / 1_000L).toInt() + 1)
+        val intervalMs = state.normalCountInterval.durationMs
+        val currentDisplay = ((totalActiveElapsedMs / intervalMs).toInt() + 1)
             .coerceIn(INITIAL_ROUND_TRIP_COUNT, maxCount)
 
         if (currentDisplay != displayedNormalCount) {
@@ -517,8 +536,8 @@ class WorkoutSecondTimerViewModel(
             emitCountSwitchEffects(state, displayedNormalCount)
         }
 
-        if (totalActiveElapsedMs >= maxCount * 1_000L) {
-            activeElapsedMs = maxCount * 1_000L
+        if (totalActiveElapsedMs >= maxCount * intervalMs) {
+            activeElapsedMs = maxCount * intervalMs
             activeRunStartedAtMs = null
             timerJob?.cancel()
             timerJob = null
@@ -549,6 +568,7 @@ class WorkoutSecondTimerViewModel(
                 roundTripCount = roundTripCount,
                 loopEnabled = settings.loopEnabled,
                 maxLoopCount = settings.maxLoopCount,
+                normalCountInterval = settings.normalCountInterval,
                 tickVibrationEnabled = settings.tickVibrationEnabled,
                 loopVibrationEnabled = settings.loopVibrationEnabled,
                 countdownSoundEnabled = settings.countdownSoundEnabled,
@@ -797,6 +817,7 @@ class WorkoutSecondTimerViewModel(
                     selectedSeconds = state.selectedSeconds,
                     loopEnabled = state.loopEnabled,
                     maxLoopCount = state.maxLoopCount,
+                    normalCountInterval = state.normalCountInterval,
                     tickVibrationEnabled = state.tickVibrationEnabled,
                     loopVibrationEnabled = state.loopVibrationEnabled,
                     countdownSoundEnabled = state.countdownSoundEnabled,
@@ -830,6 +851,7 @@ class WorkoutSecondTimerViewModel(
         savedStateHandle[NEXT_BOUNDARY_INDEX_KEY] = nextBoundaryIndex
         savedStateHandle[REMAINING_SECONDS_KEY] = displayedRemainingSeconds
         savedStateHandle[NORMAL_COUNT_KEY] = displayedNormalCount
+        savedStateHandle[NORMAL_COUNT_INTERVAL_KEY] = _uiState.value.normalCountInterval.name
         savedStateHandle[PREPARATION_ELAPSED_MS_KEY] = preparationElapsedMsSnapshot
         savedStateHandle[PREPARATION_REMAINING_SECONDS_KEY] = displayedPreparationSeconds
     }

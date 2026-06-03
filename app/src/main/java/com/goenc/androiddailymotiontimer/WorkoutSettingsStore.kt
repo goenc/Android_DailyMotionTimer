@@ -14,6 +14,7 @@ data class WorkoutTimerSettings(
     val selectedSeconds: Int = DEFAULT_SECONDS,
     val loopEnabled: Boolean = false,
     val maxLoopCount: Int = DEFAULT_MAX_LOOP_COUNT,
+    val normalCountInterval: NormalCountInterval = NormalCountInterval.Medium,
     val tickVibrationEnabled: Boolean = false,
     val loopVibrationEnabled: Boolean = true,
     val countdownSoundEnabled: Boolean = true,
@@ -40,6 +41,9 @@ class WorkoutSettingsStore(context: Context) {
             loopEnabled = preferences[LOOP_ENABLED_KEY] ?: false,
             maxLoopCount = (preferences[MAX_LOOP_COUNT_KEY] ?: DEFAULT_MAX_LOOP_COUNT)
                 .coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT),
+            normalCountInterval = NormalCountInterval.entries.getOrElse(
+                preferences[NORMAL_COUNT_INTERVAL_KEY] ?: NormalCountInterval.Medium.ordinal
+            ) { NormalCountInterval.Medium },
             tickVibrationEnabled = preferences[TICK_VIBRATION_ENABLED_KEY] ?: false,
             loopVibrationEnabled = preferences[LOOP_VIBRATION_ENABLED_KEY] ?: true,
             countdownSoundEnabled = preferences[COUNTDOWN_SOUND_ENABLED_KEY] ?: true,
@@ -68,6 +72,7 @@ class WorkoutSettingsStore(context: Context) {
             preferences[LOOP_ENABLED_KEY] = settings.loopEnabled
             preferences[MAX_LOOP_COUNT_KEY] =
                 settings.maxLoopCount.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)
+            preferences[NORMAL_COUNT_INTERVAL_KEY] = settings.normalCountInterval.ordinal
             preferences[TICK_VIBRATION_ENABLED_KEY] = settings.tickVibrationEnabled
             preferences[LOOP_VIBRATION_ENABLED_KEY] = settings.loopVibrationEnabled
             preferences[COUNTDOWN_SOUND_ENABLED_KEY] = settings.countdownSoundEnabled
@@ -92,6 +97,7 @@ class WorkoutSettingsStore(context: Context) {
         private val SELECTED_SECONDS_KEY = intPreferencesKey("selected_seconds")
         private val LOOP_ENABLED_KEY = booleanPreferencesKey("loop_enabled")
         private val MAX_LOOP_COUNT_KEY = intPreferencesKey("max_loop_count")
+        private val NORMAL_COUNT_INTERVAL_KEY = intPreferencesKey("normal_count_interval")
         private val TICK_VIBRATION_ENABLED_KEY = booleanPreferencesKey("tick_vibration_enabled")
         private val LOOP_VIBRATION_ENABLED_KEY = booleanPreferencesKey("loop_vibration_enabled")
         private val COUNTDOWN_SOUND_ENABLED_KEY = booleanPreferencesKey("countdown_sound_enabled")

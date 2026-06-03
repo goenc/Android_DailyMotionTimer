@@ -117,6 +117,7 @@ class MainActivity : ComponentActivity() {
                     onCountdownSoundChanged = timerViewModel::setCountdownSoundEnabled,
                     onCountSoundModeChanged = timerViewModel::setCountSoundMode,
                     onTimerModeSelected = timerViewModel::setTimerMode,
+                    onNormalCountIntervalSelected = timerViewModel::setNormalCountInterval,
                     onEarlyTickVolumeChanged = timerViewModel::setEarlyTickVolume,
                     onTickVolumeChanged = timerViewModel::setTickVolume,
                     onLoopCompleteVolumeChanged = timerViewModel::setLoopCompleteVolume,
@@ -150,6 +151,7 @@ private fun WorkoutSecondTimerScreen(
     onCountdownSoundChanged: (Boolean) -> Unit,
     onCountSoundModeChanged: (CountSoundMode) -> Unit,
     onTimerModeSelected: (TimerMode) -> Unit,
+    onNormalCountIntervalSelected: (NormalCountInterval) -> Unit,
     onEarlyTickVolumeChanged: (Int) -> Unit,
     onTickVolumeChanged: (Int) -> Unit,
     onLoopCompleteVolumeChanged: (Int) -> Unit,
@@ -487,17 +489,37 @@ private fun WorkoutSecondTimerScreen(
                         }
                     }
                 } else if (!uiState.hasStarted) {
-                    LoopCountSelectorRow(
-                        label = stringResource(R.string.timer_loop_count_label),
-                        selectedCount = uiState.maxLoopCount,
-                        enabled = true,
-                        helperText = stringResource(R.string.normal_count_setting_hint),
-                        onCountSelected = onMaxLoopCountChanged,
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        NormalCountIntervalSelectorRow(
+                            selectedInterval = uiState.normalCountInterval,
+                            enabled = true,
+                            onIntervalSelected = onNormalCountIntervalSelected,
+                        )
+                        LoopCountSelectorRow(
+                            label = stringResource(R.string.timer_loop_count_label),
+                            selectedCount = uiState.maxLoopCount,
+                            enabled = true,
+                            helperText = stringResource(R.string.normal_count_setting_hint),
+                            onCountSelected = onMaxLoopCountChanged,
+                        )
+                    }
                 } else {
-                    NormalCountTargetPanel(
-                        targetCount = uiState.maxLoopCount,
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        NormalCountIntervalSelectorRow(
+                            selectedInterval = uiState.normalCountInterval,
+                            enabled = false,
+                            onIntervalSelected = onNormalCountIntervalSelected,
+                        )
+                        NormalCountTargetPanel(
+                            targetCount = uiState.maxLoopCount,
+                        )
+                    }
                 }
 
                 Column(
@@ -802,6 +824,64 @@ private fun NormalCountTargetPanel(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
             )
+        }
+    }
+}
+
+@Composable
+private fun NormalCountIntervalSelectorRow(
+    selectedInterval: NormalCountInterval,
+    enabled: Boolean,
+    onIntervalSelected: (NormalCountInterval) -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        tonalElevation = 2.dp,
+        shadowElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.normal_count_interval_label),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                NormalCountInterval.entries.forEach { interval ->
+                    FilterChip(
+                        selected = selectedInterval == interval,
+                        onClick = { onIntervalSelected(interval) },
+                        enabled = enabled,
+                        label = {
+                            Text(
+                                text = when (interval) {
+                                    NormalCountInterval.Small -> stringResource(R.string.normal_count_interval_small)
+                                    NormalCountInterval.Medium -> stringResource(R.string.normal_count_interval_medium)
+                                    NormalCountInterval.Large -> stringResource(R.string.normal_count_interval_large)
+                                }
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = enabled,
+                            selected = selectedInterval == interval,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                    )
+                }
+            }
         }
     }
 }
