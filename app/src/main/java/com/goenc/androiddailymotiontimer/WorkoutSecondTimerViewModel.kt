@@ -494,7 +494,7 @@ class WorkoutSecondTimerViewModel(
                     )
                 }
 
-                phaseFinished && _uiState.value.loopEnabled && roundTripCount < _uiState.value.maxLoopCount -> {
+                phaseFinished && roundTripCount < _uiState.value.maxLoopCount -> {
                     roundTripCount += 1
                     currentPhase = WorkoutPhase.Fast
                     currentPhaseStartedAtElapsedMs += engine.phaseDurationMs
