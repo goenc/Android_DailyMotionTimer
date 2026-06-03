@@ -112,6 +112,7 @@ class MainActivity : ComponentActivity() {
                     onSecondSelected = timerViewModel::setSelectedSeconds,
                     onLoopChanged = timerViewModel::setLoopEnabled,
                     onMaxLoopCountChanged = timerViewModel::setMaxLoopCount,
+                    onNormalCountMaxCountChanged = timerViewModel::setNormalCountMaxCount,
                     onVibrationChanged = timerViewModel::setVibrationEnabled,
                     onNormalVibrationLevelChanged = timerViewModel::setNormalVibrationLevel,
                     onCompleteVibrationLevelChanged = timerViewModel::setCompleteVibrationLevel,
@@ -146,6 +147,7 @@ private fun WorkoutSecondTimerScreen(
     onSecondSelected: (Int) -> Unit,
     onLoopChanged: (Boolean) -> Unit,
     onMaxLoopCountChanged: (Int) -> Unit,
+    onNormalCountMaxCountChanged: (Int) -> Unit,
     onVibrationChanged: (Boolean) -> Unit,
     onNormalVibrationLevelChanged: (Int) -> Unit,
     onCompleteVibrationLevelChanged: (Int) -> Unit,
@@ -423,7 +425,7 @@ private fun WorkoutSecondTimerScreen(
                     if (uiState.sessionStatus == TimerSessionStatus.Completed) {
                         Spacer(modifier = Modifier.height(countSectionSpacing))
                         Text(
-                            text = stringResource(R.string.timer_completed_rounds, uiState.maxLoopCount),
+                            text = stringResource(R.string.timer_completed_rounds, uiState.normalCountMaxCount),
                             fontSize = roundTripFontSize,
                             lineHeight = roundTripLineHeight,
                             fontWeight = FontWeight.Bold,
@@ -501,9 +503,9 @@ private fun WorkoutSecondTimerScreen(
                         )
                         LoopCountSelectorRow(
                             label = stringResource(R.string.timer_loop_count_label),
-                            selectedCount = uiState.maxLoopCount,
+                            selectedCount = uiState.normalCountMaxCount,
                             enabled = true,
-                            onCountSelected = onMaxLoopCountChanged,
+                            onCountSelected = onNormalCountMaxCountChanged,
                         )
                     }
                 } else {
@@ -517,7 +519,7 @@ private fun WorkoutSecondTimerScreen(
                             onIntervalSelected = onNormalCountIntervalSelected,
                         )
                         NormalCountTargetPanel(
-                            targetCount = uiState.maxLoopCount,
+                            targetCount = uiState.normalCountMaxCount,
                         )
                     }
                 }
@@ -1148,7 +1150,7 @@ private fun timerBackgroundColor(
     }
 
     if (uiState.timerMode == TimerMode.NormalCount) {
-        val configuredCount = uiState.maxLoopCount.coerceAtLeast(1)
+        val configuredCount = uiState.normalCountMaxCount.coerceAtLeast(1)
         val currentCount = uiState.normalCount.coerceIn(1, configuredCount)
         val overallProgress = if (configuredCount == 1) {
             0f

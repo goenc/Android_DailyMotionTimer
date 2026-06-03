@@ -108,6 +108,7 @@ data class WorkoutTimerUiState(
     val roundTripCount: Int = INITIAL_ROUND_TRIP_COUNT,
     val loopEnabled: Boolean = false,
     val maxLoopCount: Int = DEFAULT_MAX_LOOP_COUNT,
+    val normalCountMaxCount: Int = DEFAULT_MAX_LOOP_COUNT,
     val normalCountInterval: NormalCountInterval = NormalCountInterval.Medium,
     val tickVibrationEnabled: Boolean = false,
     val loopVibrationEnabled: Boolean = true,
@@ -246,6 +247,13 @@ class WorkoutSecondTimerViewModel(
     fun setMaxLoopCount(value: Int) {
         _uiState.update {
             it.copy(maxLoopCount = normalizeLoopCount(value))
+        }
+        persistCurrentSettings()
+    }
+
+    fun setNormalCountMaxCount(value: Int) {
+        _uiState.update {
+            it.copy(normalCountMaxCount = normalizeLoopCount(value))
         }
         persistCurrentSettings()
     }
@@ -525,7 +533,7 @@ class WorkoutSecondTimerViewModel(
     private suspend fun updateNormalCountTimerState() {
         val state = _uiState.value
         val totalActiveElapsedMs = currentActiveElapsedMs()
-        val maxCount = state.maxLoopCount.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)
+        val maxCount = state.normalCountMaxCount.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)
         val intervalMs = state.normalCountInterval.durationMs
         val currentDisplay = ((totalActiveElapsedMs / intervalMs).toInt() + 1)
             .coerceIn(INITIAL_ROUND_TRIP_COUNT, maxCount)
@@ -568,6 +576,7 @@ class WorkoutSecondTimerViewModel(
                 roundTripCount = roundTripCount,
                 loopEnabled = settings.loopEnabled,
                 maxLoopCount = settings.maxLoopCount,
+                normalCountMaxCount = settings.normalCountMaxCount,
                 normalCountInterval = settings.normalCountInterval,
                 tickVibrationEnabled = settings.tickVibrationEnabled,
                 loopVibrationEnabled = settings.loopVibrationEnabled,
@@ -823,6 +832,7 @@ class WorkoutSecondTimerViewModel(
                     selectedSeconds = state.selectedSeconds,
                     loopEnabled = state.loopEnabled,
                     maxLoopCount = state.maxLoopCount,
+                    normalCountMaxCount = state.normalCountMaxCount,
                     normalCountInterval = state.normalCountInterval,
                     tickVibrationEnabled = state.tickVibrationEnabled,
                     loopVibrationEnabled = state.loopVibrationEnabled,
