@@ -345,7 +345,8 @@ private fun WorkoutSecondTimerScreen(
                 stringResource(R.string.timer_action_pause)
             }
 
-            LaunchedEffect(uiState.selectedSeconds) {
+            LaunchedEffect(uiState.timerMode, uiState.selectedSeconds) {
+                if (uiState.timerMode != TimerMode.Motion) return@LaunchedEffect
                 if (hasCenteredInitialSelection) {
                     secondListState.animateScrollToItem(selectedIndex, secondsRowCenterOffset)
                 } else {
