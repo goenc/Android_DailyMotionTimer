@@ -788,6 +788,9 @@ private fun LoopCountSelectorRow(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
