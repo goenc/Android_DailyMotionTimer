@@ -5,6 +5,8 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import java.util.Locale
@@ -23,12 +25,13 @@ class CountdownVoicePlayer(context: Context) {
         .build()
     private val soundIds = mutableMapOf<Int, Int>()
     private val loadedSoundIds = mutableSetOf<Int>()
+    private val handler = Handler(Looper.getMainLooper())
+    private val pendingSoundStarts = mutableListOf<Runnable>()
     private var textToSpeech: TextToSpeech? = null
-    private var activeStreamId: Int? = null
+    private val activeStreamIds = mutableListOf<Int>()
     private var pendingPlayback: PendingPlayback? = null
     private var textToSpeechReady = false
     private var pendingPhaseSpeech: PhaseSpeech? = null
-    private var pendingCountSpeech: CountSpeech? = null
     private var earlyTickVolume = DEFAULT_EARLY_TICK_VOLUME
     private var tickVolume = DEFAULT_TICK_VOLUME
     private var loopCompleteVolume = DEFAULT_LOOP_COMPLETE_VOLUME
@@ -43,13 +46,8 @@ class CountdownVoicePlayer(context: Context) {
                     pendingPhaseSpeech = null
                     speakPhaseCueNow(pendingSpeech)
                 }
-                pendingCountSpeech?.let { pendingSpeech ->
-                    pendingCountSpeech = null
-                    speakCountCueNow(pendingSpeech)
-                }
             } else {
                 pendingPhaseSpeech = null
-                pendingCountSpeech = null
                 Log.w(TAG, "Failed to initialize TextToSpeech status=$status")
             }
         }
@@ -57,9 +55,9 @@ class CountdownVoicePlayer(context: Context) {
             if (status != 0) return@setOnLoadCompleteListener
             loadedSoundIds += soundId
             val queuedPlayback = pendingPlayback ?: return@setOnLoadCompleteListener
-            if (soundIds[queuedPlayback.count] == soundId) {
+            if (canPlayCountFromLoadedSounds(queuedPlayback.count)) {
                 pendingPlayback = null
-                playLoadedSound(soundId, queuedPlayback.cueType)
+                playLoadedCount(queuedPlayback.count, queuedPlayback.cueType)
             }
         }
         COUNT_RESOURCE_IDS.forEach { (count, resId) ->
@@ -86,19 +84,14 @@ class CountdownVoicePlayer(context: Context) {
             return
         }
 
-        val soundId = soundIds[count]
-        if (soundId == null) {
-            pendingPlayback = null
-            pendingPhaseSpeech = null
-            speakCountCue(CountSpeech(count = count, cueType = cueType))
+        if (!canPlayCount(count)) {
             return
         }
         pendingPhaseSpeech = null
-        pendingCountSpeech = null
         stopTextToSpeech()
-        if (loadedSoundIds.contains(soundId)) {
+        if (canPlayCountFromLoadedSounds(count)) {
             pendingPlayback = null
-            playLoadedSound(soundId, cueType)
+            playLoadedCount(count, cueType)
         } else {
             stopActivePlayback()
             pendingPlayback = PendingPlayback(count = count, cueType = cueType)
@@ -120,7 +113,6 @@ class CountdownVoicePlayer(context: Context) {
     fun stop() {
         pendingPlayback = null
         pendingPhaseSpeech = null
-        pendingCountSpeech = null
         stopTextToSpeech()
         stopActivePlayback()
     }
@@ -132,25 +124,43 @@ class CountdownVoicePlayer(context: Context) {
     }
 
     private fun stopActivePlayback() {
-        activeStreamId?.let(soundPool::stop)
-        activeStreamId = null
+        pendingSoundStarts.forEach(handler::removeCallbacks)
+        pendingSoundStarts.clear()
+        activeStreamIds.forEach(soundPool::stop)
+        activeStreamIds.clear()
     }
 
     private fun stopTextToSpeech() {
         textToSpeech?.stop()
     }
 
-    private fun playLoadedSound(soundId: Int, cueType: CountdownCueType) {
+    private fun playLoadedCount(count: Int, cueType: CountdownCueType) {
+        val soundSequence = countSoundSequence(count) ?: return
+        playLoadedSoundSequence(soundSequence, cueType)
+    }
+
+    private fun playLoadedSoundSequence(soundSequence: List<Int>, cueType: CountdownCueType) {
         stopActivePlayback()
         val volume = resolveVolume(cueType)
         if (volume <= 0f) return
-        val streamId = soundPool.play(soundId, volume, volume, 1, 0, 1f)
-        if (streamId == 0) {
-            Log.w(TAG, "Failed to play countdown voice for soundId=$soundId")
-            activeStreamId = null
-            return
+
+        soundSequence.forEachIndexed { index, soundId ->
+            val action = Runnable {
+                val streamId = soundPool.play(soundId, volume, volume, 1, 0, 1f)
+                if (streamId == 0) {
+                    Log.w(TAG, "Failed to play countdown voice for soundId=$soundId")
+                    return@Runnable
+                }
+                activeStreamIds += streamId
+            }
+            pendingSoundStarts += action
+            val delayMs = COUNT_SOUND_SEQUENCE_INTERVAL_MS * index
+            if (delayMs == 0L) {
+                action.run()
+            } else {
+                handler.postDelayed(action, delayMs)
+            }
         }
-        activeStreamId = streamId
     }
 
     private fun resolveVolume(cueType: CountdownCueType): Float {
@@ -171,16 +181,6 @@ class CountdownVoicePlayer(context: Context) {
         pendingPhaseSpeech = null
         // QUEUE_FLUSH already replaces the current utterance, so avoid an extra stop() here.
         speakPhaseCueNow(phaseSpeech)
-    }
-
-    private fun speakCountCue(countSpeech: CountSpeech) {
-        stopActivePlayback()
-        if (!textToSpeechReady) {
-            pendingCountSpeech = countSpeech
-            return
-        }
-        pendingCountSpeech = null
-        speakCountCueNow(countSpeech)
     }
 
     private fun speakPhaseCueNow(phaseSpeech: PhaseSpeech) {
@@ -205,24 +205,40 @@ class CountdownVoicePlayer(context: Context) {
         }
     }
 
-    private fun speakCountCueNow(countSpeech: CountSpeech) {
-        val tts = textToSpeech ?: return
-        val params = Bundle().apply {
-            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, resolveVolume(countSpeech.cueType))
-        }
-        val status = tts.speak(
-            "${countSpeech.count}回",
-            TextToSpeech.QUEUE_FLUSH,
-            params,
-            "count-${countSpeech.count}",
-        )
-        if (status != TextToSpeech.SUCCESS) {
-            Log.w(TAG, "Failed to speak count voice count=${countSpeech.count}")
+    private fun canPlayCount(count: Int): Boolean {
+        return countSoundParts(count) != null
+    }
+
+    private fun canPlayCountFromLoadedSounds(count: Int): Boolean {
+        val soundSequence = countSoundSequence(count) ?: return false
+        return soundSequence.all(loadedSoundIds::contains)
+    }
+
+    private fun countSoundSequence(count: Int): List<Int>? {
+        val parts = countSoundParts(count) ?: return null
+        return parts.map { part -> soundIds[part] ?: return null }
+    }
+
+    private fun countSoundParts(count: Int): List<Int>? {
+        if (count in COUNT_RESOURCE_IDS.keys) return listOf(count)
+        if (count !in 11..MAX_LOOP_COUNT) return null
+
+        val tens = count / 10
+        val ones = count % 10
+        return buildList {
+            if (tens > 1) {
+                add(tens)
+            }
+            add(10)
+            if (ones > 0) {
+                add(ones)
+            }
         }
     }
 
     private companion object {
         private const val TAG = "CountdownVoicePlayer"
+        private const val COUNT_SOUND_SEQUENCE_INTERVAL_MS = 320L
         private val COUNT_RESOURCE_IDS = mapOf(
             10 to R.raw.count_10,
             9 to R.raw.count_9,
@@ -248,10 +264,5 @@ class CountdownVoicePlayer(context: Context) {
         val cueType: CountdownCueType,
         val voicePhase: WorkoutPhase,
         val voiceRoundTripCount: Int?,
-    )
-
-    private data class CountSpeech(
-        val count: Int,
-        val cueType: CountdownCueType,
     )
 }
