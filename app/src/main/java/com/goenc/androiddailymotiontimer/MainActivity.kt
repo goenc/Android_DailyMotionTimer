@@ -425,7 +425,14 @@ private fun WorkoutSecondTimerScreen(
                     if (uiState.sessionStatus == TimerSessionStatus.Completed) {
                         Spacer(modifier = Modifier.height(countSectionSpacing))
                         Text(
-                            text = stringResource(R.string.timer_completed_rounds, uiState.normalCountMaxCount),
+                            text = stringResource(
+                                R.string.timer_completed_rounds,
+                                if (uiState.timerMode == TimerMode.NormalCount) {
+                                    uiState.normalCountMaxCount
+                                } else {
+                                    uiState.maxLoopCount
+                                },
+                            ),
                             fontSize = roundTripFontSize,
                             lineHeight = roundTripLineHeight,
                             fontWeight = FontWeight.Bold,
@@ -464,30 +471,47 @@ private fun WorkoutSecondTimerScreen(
                 }
 
                 if (uiState.timerMode == TimerMode.Motion) {
-                    LazyRow(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        state = secondListState,
-                        userScrollEnabled = uiState.canChangeSeconds,
-                        contentPadding = PaddingValues(horizontal = secondsRowHorizontalPadding),
-                        horizontalArrangement = Arrangement.spacedBy(secondChipSpacing),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        items(secondOptions) { second ->
-                            FilterChip(
-                                selected = uiState.selectedSeconds == second,
-                                onClick = { onSecondSelected(second) },
-                                label = { Text("${second}秒") },
-                                enabled = uiState.canChangeSeconds,
-                                modifier = Modifier.width(secondChipWidth),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = uiState.canChangeSeconds,
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            state = secondListState,
+                            userScrollEnabled = uiState.canChangeSeconds,
+                            contentPadding = PaddingValues(horizontal = secondsRowHorizontalPadding),
+                            horizontalArrangement = Arrangement.spacedBy(secondChipSpacing),
+                        ) {
+                            items(secondOptions) { second ->
+                                FilterChip(
                                     selected = uiState.selectedSeconds == second,
-                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                    selectedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                ),
+                                    onClick = { onSecondSelected(second) },
+                                    label = { Text("${second}秒") },
+                                    enabled = uiState.canChangeSeconds,
+                                    modifier = Modifier.width(secondChipWidth),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = uiState.canChangeSeconds,
+                                        selected = uiState.selectedSeconds == second,
+                                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    ),
+                                )
+                            }
+                        }
+                        if (!uiState.hasStarted) {
+                            LoopCountSelectorRow(
+                                label = stringResource(R.string.timer_loop_count_label),
+                                selectedCount = uiState.maxLoopCount,
+                                enabled = true,
+                                onCountSelected = onMaxLoopCountChanged,
+                            )
+                        } else {
+                            NormalCountTargetPanel(
+                                targetCount = uiState.maxLoopCount,
                             )
                         }
                     }
@@ -586,7 +610,6 @@ private fun WorkoutSecondTimerScreen(
             uiState = uiState,
             onDismiss = { showSettingsDialog = false },
             onLoopChanged = onLoopChanged,
-            onMaxLoopCountChanged = onMaxLoopCountChanged,
             onVibrationChanged = onVibrationChanged,
             onCountdownSoundChanged = onCountdownSoundChanged,
             onCountSoundModeChanged = onCountSoundModeChanged,
@@ -639,7 +662,6 @@ private fun CountdownSoundSettingsDialog(
     uiState: WorkoutTimerUiState,
     onDismiss: () -> Unit,
     onLoopChanged: (Boolean) -> Unit,
-    onMaxLoopCountChanged: (Int) -> Unit,
     onVibrationChanged: (Boolean) -> Unit,
     onCountdownSoundChanged: (Boolean) -> Unit,
     onCountSoundModeChanged: (CountSoundMode) -> Unit,
@@ -688,12 +710,6 @@ private fun CountdownSoundSettingsDialog(
                             label = stringResource(R.string.timer_toggle_loop),
                             checked = uiState.loopEnabled,
                             onCheckedChange = onLoopChanged,
-                        )
-                        LoopCountSelectorRow(
-                            label = stringResource(R.string.timer_loop_count_label),
-                            selectedCount = uiState.maxLoopCount,
-                            enabled = uiState.loopEnabled || uiState.timerMode == TimerMode.NormalCount,
-                            onCountSelected = onMaxLoopCountChanged,
                         )
                         TimerToggleRow(
                             label = stringResource(R.string.timer_toggle_vibration),
