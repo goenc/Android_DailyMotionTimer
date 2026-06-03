@@ -39,8 +39,9 @@ class WorkoutSettingsStore(context: Context) {
             selectedSeconds = (preferences[SELECTED_SECONDS_KEY] ?: DEFAULT_SECONDS)
                 .coerceIn(MIN_SECONDS, MAX_SECONDS),
             loopEnabled = preferences[LOOP_ENABLED_KEY] ?: false,
-            maxLoopCount = (preferences[MAX_LOOP_COUNT_KEY] ?: DEFAULT_MAX_LOOP_COUNT)
-                .coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT),
+            maxLoopCount = normalizeLoopCount(
+                preferences[MAX_LOOP_COUNT_KEY] ?: DEFAULT_MAX_LOOP_COUNT,
+            ),
             normalCountInterval = NormalCountInterval.entries.getOrElse(
                 preferences[NORMAL_COUNT_INTERVAL_KEY] ?: NormalCountInterval.Medium.ordinal
             ) { NormalCountInterval.Medium },
@@ -70,8 +71,7 @@ class WorkoutSettingsStore(context: Context) {
             preferences[TIMER_MODE_KEY] = settings.timerMode.ordinal
             preferences[SELECTED_SECONDS_KEY] = settings.selectedSeconds
             preferences[LOOP_ENABLED_KEY] = settings.loopEnabled
-            preferences[MAX_LOOP_COUNT_KEY] =
-                settings.maxLoopCount.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)
+            preferences[MAX_LOOP_COUNT_KEY] = normalizeLoopCount(settings.maxLoopCount)
             preferences[NORMAL_COUNT_INTERVAL_KEY] = settings.normalCountInterval.ordinal
             preferences[TICK_VIBRATION_ENABLED_KEY] = settings.tickVibrationEnabled
             preferences[LOOP_VIBRATION_ENABLED_KEY] = settings.loopVibrationEnabled
@@ -107,5 +107,11 @@ class WorkoutSettingsStore(context: Context) {
         private val LOOP_COMPLETE_VOLUME_KEY = intPreferencesKey("loop_complete_volume")
         private val NORMAL_VIBRATION_LEVEL_KEY = intPreferencesKey("normal_vibration_level")
         private val COMPLETE_VIBRATION_LEVEL_KEY = intPreferencesKey("complete_vibration_level")
+
+        private fun normalizeLoopCount(value: Int): Int {
+            val clampedValue = value.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)
+            val snappedValue = ((clampedValue - MIN_LOOP_COUNT) / 5) * 5 + MIN_LOOP_COUNT
+            return snappedValue.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)
+        }
     }
 }

@@ -245,7 +245,7 @@ class WorkoutSecondTimerViewModel(
 
     fun setMaxLoopCount(value: Int) {
         _uiState.update {
-            it.copy(maxLoopCount = value.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT))
+            it.copy(maxLoopCount = normalizeLoopCount(value))
         }
         persistCurrentSettings()
     }
@@ -717,6 +717,12 @@ class WorkoutSecondTimerViewModel(
             activeElapsedMsSnapshot = activeElapsedMsSnapshot,
             preparationElapsedMsSnapshot = preparationElapsedMsSnapshot,
         )
+    }
+
+    private fun normalizeLoopCount(value: Int): Int {
+        val clampedValue = value.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)
+        val snappedValue = ((clampedValue - MIN_LOOP_COUNT) / 5) * 5 + MIN_LOOP_COUNT
+        return snappedValue.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)
     }
 
     private fun emitCountSwitchEffects(state: WorkoutTimerUiState, displayedValue: Int) {

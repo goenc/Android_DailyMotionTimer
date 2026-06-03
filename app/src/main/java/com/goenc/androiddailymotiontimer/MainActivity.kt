@@ -652,80 +652,92 @@ private fun CountdownSoundSettingsDialog(
             shape = RoundedCornerShape(24.dp),
             tonalElevation = 6.dp,
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.timer_sound_settings_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                TimerToggleRow(
-                    label = stringResource(R.string.timer_toggle_loop),
-                    checked = uiState.loopEnabled,
-                    onCheckedChange = onLoopChanged,
-                )
-                LoopCountSelectorRow(
-                    label = stringResource(R.string.timer_loop_count_label),
-                    selectedCount = uiState.maxLoopCount,
-                    enabled = uiState.loopEnabled || uiState.timerMode == TimerMode.NormalCount,
-                    onCountSelected = onMaxLoopCountChanged,
-                )
-                TimerToggleRow(
-                    label = stringResource(R.string.timer_toggle_vibration),
-                    checked = uiState.vibrationEnabled,
-                    onCheckedChange = onVibrationChanged,
-                )
-                TimerToggleRow(
-                    label = stringResource(R.string.timer_toggle_countdown_sound),
-                    checked = uiState.countdownSoundEnabled,
-                    onCheckedChange = onCountdownSoundChanged,
-                )
-                CountSoundModeSelectorRow(
-                    selectedMode = uiState.countSoundMode,
-                    onModeSelected = onCountSoundModeChanged,
-                )
-                CountdownVolumeSliderRow(
-                    label = "早期ティック音量",
-                    value = uiState.earlyTickVolume,
-                    onValueChanged = onEarlyTickVolumeChanged,
-                )
-                CountdownVolumeSliderRow(
-                    label = "通常ティック音量",
-                    value = uiState.tickVolume,
-                    onValueChanged = onTickVolumeChanged,
-                )
-                CountdownVolumeSliderRow(
-                    label = "完了音量",
-                    value = uiState.loopCompleteVolume,
-                    onValueChanged = onLoopCompleteVolumeChanged,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "バイブ設定",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                VibrationLevelSelectorRow(
-                    label = "通常バイブ強度",
-                    selectedLevel = uiState.normalVibrationLevel,
-                    onLevelSelected = onNormalVibrationLevelChanged,
-                )
-                VibrationLevelSelectorRow(
-                    label = "完了バイブ強度",
-                    selectedLevel = uiState.completeVibrationLevel,
-                    onLevelSelected = onCompleteVibrationLevelChanged,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+            BoxWithConstraints {
+                val dialogHeight = (maxHeight * 0.85f).coerceAtMost(640.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(dialogHeight)
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("閉じる")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.timer_sound_settings_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = onDismiss) {
+                            Text("閉じる")
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        TimerToggleRow(
+                            label = stringResource(R.string.timer_toggle_loop),
+                            checked = uiState.loopEnabled,
+                            onCheckedChange = onLoopChanged,
+                        )
+                        LoopCountSelectorRow(
+                            label = stringResource(R.string.timer_loop_count_label),
+                            selectedCount = uiState.maxLoopCount,
+                            enabled = uiState.loopEnabled || uiState.timerMode == TimerMode.NormalCount,
+                            onCountSelected = onMaxLoopCountChanged,
+                        )
+                        TimerToggleRow(
+                            label = stringResource(R.string.timer_toggle_vibration),
+                            checked = uiState.vibrationEnabled,
+                            onCheckedChange = onVibrationChanged,
+                        )
+                        TimerToggleRow(
+                            label = stringResource(R.string.timer_toggle_countdown_sound),
+                            checked = uiState.countdownSoundEnabled,
+                            onCheckedChange = onCountdownSoundChanged,
+                        )
+                        CountSoundModeSelectorRow(
+                            selectedMode = uiState.countSoundMode,
+                            onModeSelected = onCountSoundModeChanged,
+                        )
+                        CountdownVolumeSliderRow(
+                            label = "早期ティック音量",
+                            value = uiState.earlyTickVolume,
+                            onValueChanged = onEarlyTickVolumeChanged,
+                        )
+                        CountdownVolumeSliderRow(
+                            label = "通常ティック音量",
+                            value = uiState.tickVolume,
+                            onValueChanged = onTickVolumeChanged,
+                        )
+                        CountdownVolumeSliderRow(
+                            label = "完了音量",
+                            value = uiState.loopCompleteVolume,
+                            onValueChanged = onLoopCompleteVolumeChanged,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "バイブ設定",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        VibrationLevelSelectorRow(
+                            label = "通常バイブ強度",
+                            selectedLevel = uiState.normalVibrationLevel,
+                            onLevelSelected = onNormalVibrationLevelChanged,
+                        )
+                        VibrationLevelSelectorRow(
+                            label = "完了バイブ強度",
+                            selectedLevel = uiState.completeVibrationLevel,
+                            onLevelSelected = onCompleteVibrationLevelChanged,
+                        )
                     }
                 }
             }
