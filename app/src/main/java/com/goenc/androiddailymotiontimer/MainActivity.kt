@@ -69,6 +69,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -168,6 +169,7 @@ private fun WorkoutSecondTimerScreen(
     val context = LocalContext.current
     val secondOptions = (MIN_SECONDS..MAX_SECONDS).toList()
     val secondListState = rememberLazyListState()
+    val density = LocalDensity.current
     var hasCenteredInitialSelection by remember { mutableStateOf(false) }
     var showLaunchOverlay by remember { mutableStateOf(true) }
     var showSettingsDialog by remember { mutableStateOf(false) }
@@ -312,6 +314,7 @@ private fun WorkoutSecondTimerScreen(
             val secondChipWidth = 72.dp
             val secondChipSpacing = 8.dp
             val secondsRowHorizontalPadding = maxOf(0.dp, (maxWidth - secondChipWidth) / 2)
+            val secondsRowCenterOffset = with(density) { secondsRowHorizontalPadding.roundToPx() }
             val selectedIndex = uiState.selectedSeconds - MIN_SECONDS
             val phaseLabel = when {
                 uiState.isPreparing -> stringResource(R.string.timer_phase_preparation)
@@ -344,9 +347,9 @@ private fun WorkoutSecondTimerScreen(
 
             LaunchedEffect(uiState.selectedSeconds) {
                 if (hasCenteredInitialSelection) {
-                    secondListState.animateScrollToItem(selectedIndex)
+                    secondListState.animateScrollToItem(selectedIndex, secondsRowCenterOffset)
                 } else {
-                    secondListState.scrollToItem(selectedIndex)
+                    secondListState.scrollToItem(selectedIndex, secondsRowCenterOffset)
                     hasCenteredInitialSelection = true
                 }
             }
@@ -487,7 +490,13 @@ private fun WorkoutSecondTimerScreen(
                                 FilterChip(
                                     selected = uiState.selectedSeconds == second,
                                     onClick = { onSecondSelected(second) },
-                                    label = { Text("${second}秒") },
+                                    label = {
+                                        Text(
+                                            text = "${second}秒",
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.Center,
+                                        )
+                                    },
                                     enabled = uiState.canChangeSeconds,
                                     modifier = Modifier.width(secondChipWidth),
                                     border = FilterChipDefaults.filterChipBorder(
