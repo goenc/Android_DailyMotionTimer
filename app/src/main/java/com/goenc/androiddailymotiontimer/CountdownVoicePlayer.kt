@@ -80,6 +80,14 @@ class CountdownVoicePlayer(context: Context) {
         voicePhase: WorkoutPhase? = null,
         voiceRoundTripCount: Int? = null,
     ) {
+        if (isNormalCountMode && cueType == CountdownCueType.LoopComplete) {
+            pendingPlayback = null
+            pendingPhaseSpeech = null
+            stopTextToSpeech()
+            stopActivePlayback()
+            return
+        }
+
         if (voicePhase != null) {
             pendingPlayback = null
             speakPhaseCue(
