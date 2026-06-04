@@ -1,6 +1,6 @@
 param(
     [string]$EngineBaseUrl = "http://127.0.0.1:50021",
-    [int]$SpeakerId = 119
+    [int]$SpeakerId = 3
 )
 
 $ErrorActionPreference = "Stop"
