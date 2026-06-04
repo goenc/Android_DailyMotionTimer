@@ -553,7 +553,7 @@ class WorkoutSecondTimerViewModel(
             sessionStatus = TimerSessionStatus.Completed
             displayedNormalCount = maxCount
             roundTripCount = maxCount
-            emitCountSwitchEffects(state, 0)
+            emitCountSwitchEffects(state, 0, suppressLoopCompleteVoice = true)
             publishUiState(activeElapsedMsSnapshot = activeElapsedMs)
             return
         }
@@ -735,7 +735,11 @@ class WorkoutSecondTimerViewModel(
         return snappedValue.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)
     }
 
-    private fun emitCountSwitchEffects(state: WorkoutTimerUiState, displayedValue: Int) {
+    private fun emitCountSwitchEffects(
+        state: WorkoutTimerUiState,
+        displayedValue: Int,
+        suppressLoopCompleteVoice: Boolean = false,
+    ) {
         if (displayedValue == 0 && state.loopVibrationEnabled) {
             _vibrationEvents.tryEmit(VibrationEvent.LoopComplete)
         } else if (state.tickVibrationEnabled) {
@@ -746,6 +750,7 @@ class WorkoutSecondTimerViewModel(
             displayedValue = displayedValue,
             countdownSoundEnabled = state.countdownSoundEnabled,
             isNormalCountMode = state.timerMode == TimerMode.NormalCount,
+            suppressLoopCompleteVoice = suppressLoopCompleteVoice,
         )
     }
 
@@ -793,10 +798,12 @@ class WorkoutSecondTimerViewModel(
         displayedValue: Int,
         countdownSoundEnabled: Boolean,
         isNormalCountMode: Boolean,
+        suppressLoopCompleteVoice: Boolean = false,
         voicePhase: WorkoutPhase? = null,
         voiceRoundTripCount: Int? = null,
     ) {
         if (!countdownSoundEnabled) return
+        if (displayedValue == 0 && suppressLoopCompleteVoice) return
         if (displayedValue == 0) {
             _countdownSoundEvents.tryEmit(
                 CountdownSoundEvent(
