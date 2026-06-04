@@ -27,4 +27,6 @@
     <string name="timer_toggle_countdown_sound">音声</string>
     <string name="timer_sound_settings_title">音声設定</string>
     <string name="timer_sound_mode_label">音声種類</string>
+    <string name="timer_sound_credit_label">音声クレジット</string>
+    <string name="timer_sound_credit_value">VOICEVOX: 夜語トバリ</string>
 </resources>

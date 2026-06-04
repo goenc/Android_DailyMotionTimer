@@ -752,6 +752,17 @@ private fun CountdownSoundSettingsDialog(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
+                            text = stringResource(R.string.timer_sound_credit_label),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = stringResource(R.string.timer_sound_credit_value),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
                             text = "バイブ設定",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
