@@ -173,6 +173,7 @@ enum class VibrationEvent {
 data class CountdownSoundEvent(
     val cueType: CountdownCueType,
     val displayedValue: Int,
+    val isNormalCountMode: Boolean,
     val voicePhase: WorkoutPhase? = null,
     val voiceRoundTripCount: Int? = null,
 )
@@ -744,6 +745,7 @@ class WorkoutSecondTimerViewModel(
         emitCountdownSound(
             displayedValue = displayedValue,
             countdownSoundEnabled = state.countdownSoundEnabled,
+            isNormalCountMode = state.timerMode == TimerMode.NormalCount,
         )
     }
 
@@ -764,6 +766,7 @@ class WorkoutSecondTimerViewModel(
         emitCountdownSound(
             displayedValue = displayedValue,
             countdownSoundEnabled = state.countdownSoundEnabled,
+            isNormalCountMode = state.timerMode == TimerMode.NormalCount,
             voicePhase = if (isPreparationCue || state.timerMode == TimerMode.NormalCount) {
                 null
             } else {
@@ -789,6 +792,7 @@ class WorkoutSecondTimerViewModel(
     private fun emitCountdownSound(
         displayedValue: Int,
         countdownSoundEnabled: Boolean,
+        isNormalCountMode: Boolean,
         voicePhase: WorkoutPhase? = null,
         voiceRoundTripCount: Int? = null,
     ) {
@@ -798,6 +802,7 @@ class WorkoutSecondTimerViewModel(
                 CountdownSoundEvent(
                     cueType = CountdownCueType.LoopComplete,
                     displayedValue = displayedValue,
+                    isNormalCountMode = isNormalCountMode,
                     voicePhase = null,
                     voiceRoundTripCount = null,
                 )
@@ -807,6 +812,7 @@ class WorkoutSecondTimerViewModel(
                 CountdownSoundEvent(
                     cueType = CountdownCueType.EarlyTick,
                     displayedValue = displayedValue,
+                    isNormalCountMode = isNormalCountMode,
                     voicePhase = voicePhase,
                     voiceRoundTripCount = voiceRoundTripCount,
                 )
@@ -816,6 +822,7 @@ class WorkoutSecondTimerViewModel(
                 CountdownSoundEvent(
                     cueType = CountdownCueType.Tick,
                     displayedValue = displayedValue,
+                    isNormalCountMode = isNormalCountMode,
                     voicePhase = voicePhase,
                     voiceRoundTripCount = voiceRoundTripCount,
                 )

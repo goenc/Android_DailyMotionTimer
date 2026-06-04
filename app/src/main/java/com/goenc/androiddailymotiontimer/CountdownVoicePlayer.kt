@@ -27,7 +27,8 @@ class CountdownVoicePlayer(context: Context) {
                 .build()
         )
         .build()
-    private val soundIds = mutableMapOf<Int, Int>()
+    private val motionSoundIds = mutableMapOf<Int, Int>()
+    private val normalCountSoundIds = mutableMapOf<Int, Int>()
     private val loadedSoundIds = mutableSetOf<Int>()
     private var textToSpeech: TextToSpeech? = null
     private var activeStreamId: Int? = null
@@ -59,19 +60,23 @@ class CountdownVoicePlayer(context: Context) {
             if (status != 0) return@setOnLoadCompleteListener
             loadedSoundIds += soundId
             val queuedPlayback = pendingPlayback ?: return@setOnLoadCompleteListener
-            if (soundIds[queuedPlayback.count] == soundId) {
+            if (resolveSoundId(queuedPlayback.count, queuedPlayback.isNormalCountMode) == soundId) {
                 pendingPlayback = null
                 playLoadedSound(soundId, queuedPlayback.cueType)
             }
         }
-        COUNT_RESOURCE_IDS.forEach { (count, resId) ->
-            soundIds[count] = soundPool.load(appContext, resId, 1)
+        MOTION_COUNT_RESOURCE_IDS.forEach { (count, resId) ->
+            motionSoundIds[count] = soundPool.load(appContext, resId, 1)
+        }
+        NORMAL_COUNT_RESOURCE_IDS.forEach { (count, resId) ->
+            normalCountSoundIds[count] = soundPool.load(appContext, resId, 1)
         }
     }
 
     fun playCount(
         count: Int,
         cueType: CountdownCueType,
+        isNormalCountMode: Boolean,
         voicePhase: WorkoutPhase? = null,
         voiceRoundTripCount: Int? = null,
     ) {
@@ -88,11 +93,11 @@ class CountdownVoicePlayer(context: Context) {
             return
         }
 
-        if (count >= 11) {
+        if (!isNormalCountMode && count >= 11) {
             ensureCompositeSoundLoaded(count)
         }
 
-        val soundId = soundIds[count] ?: return
+        val soundId = resolveSoundId(count, isNormalCountMode) ?: return
         pendingPhaseSpeech = null
         stopTextToSpeech()
         if (loadedSoundIds.contains(soundId)) {
@@ -100,7 +105,11 @@ class CountdownVoicePlayer(context: Context) {
             playLoadedSound(soundId, cueType)
         } else {
             stopActivePlayback()
-            pendingPlayback = PendingPlayback(count = count, cueType = cueType)
+            pendingPlayback = PendingPlayback(
+                count = count,
+                cueType = cueType,
+                isNormalCountMode = isNormalCountMode,
+            )
         }
     }
 
@@ -171,6 +180,14 @@ class CountdownVoicePlayer(context: Context) {
         speakPhaseCueNow(phaseSpeech)
     }
 
+    private fun resolveSoundId(count: Int, isNormalCountMode: Boolean): Int? {
+        return if (isNormalCountMode) {
+            normalCountSoundIds[count]
+        } else {
+            motionSoundIds[count]
+        }
+    }
+
     private fun speakPhaseCueNow(phaseSpeech: PhaseSpeech) {
         val tts = textToSpeech ?: return
 
@@ -191,12 +208,12 @@ class CountdownVoicePlayer(context: Context) {
     }
 
     private fun ensureCompositeSoundLoaded(count: Int) {
-        if (soundIds.containsKey(count)) return
+        if (motionSoundIds.containsKey(count)) return
         val outputFile = compositeVoiceFile(count)
         if (!outputFile.exists()) {
             generateCompositeVoiceFile(count, outputFile)
         }
-        soundIds[count] = soundPool.load(outputFile.absolutePath, 1)
+        motionSoundIds[count] = soundPool.load(outputFile.absolutePath, 1)
     }
 
     private fun compositeVoiceFile(count: Int): File {
@@ -380,7 +397,7 @@ class CountdownVoicePlayer(context: Context) {
         private const val SILENCE_THRESHOLD = 300
         private const val SILENCE_PADDING_MS = 10
         private const val CROSSFADE_MS = 40
-        private val COUNT_RESOURCE_IDS = mapOf(
+        private val NORMAL_COUNT_RESOURCE_IDS = mapOf(
             50 to R.raw.count_50,
             49 to R.raw.count_49,
             48 to R.raw.count_48,
@@ -433,12 +450,26 @@ class CountdownVoicePlayer(context: Context) {
             1 to R.raw.count_1,
             0 to R.raw.count_0,
         )
-        private val BASE_COUNT_RESOURCE_IDS = COUNT_RESOURCE_IDS
+        private val MOTION_COUNT_RESOURCE_IDS = mapOf(
+            10 to R.raw.motion_count_10,
+            9 to R.raw.motion_count_9,
+            8 to R.raw.motion_count_8,
+            7 to R.raw.motion_count_7,
+            6 to R.raw.motion_count_6,
+            5 to R.raw.motion_count_5,
+            4 to R.raw.motion_count_4,
+            3 to R.raw.motion_count_3,
+            2 to R.raw.motion_count_2,
+            1 to R.raw.motion_count_1,
+            0 to R.raw.motion_count_0,
+        )
+        private val BASE_COUNT_RESOURCE_IDS = MOTION_COUNT_RESOURCE_IDS
     }
 
     private data class PendingPlayback(
         val count: Int,
         val cueType: CountdownCueType,
+        val isNormalCountMode: Boolean,
     )
 
     private data class PhaseSpeech(

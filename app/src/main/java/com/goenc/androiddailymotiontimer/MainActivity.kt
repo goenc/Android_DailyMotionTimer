@@ -209,6 +209,7 @@ private fun WorkoutSecondTimerScreen(
                 CountSoundMode.Voice -> countdownVoicePlayer.playCount(
                     count = event.displayedValue,
                     cueType = event.cueType,
+                    isNormalCountMode = event.isNormalCountMode,
                     voicePhase = event.voicePhase,
                     voiceRoundTripCount = event.voiceRoundTripCount,
                 )
