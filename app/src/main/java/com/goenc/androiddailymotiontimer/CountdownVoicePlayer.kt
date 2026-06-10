@@ -4,7 +4,10 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -17,6 +20,7 @@ import kotlin.math.min
 
 class CountdownVoicePlayer(context: Context) {
     private val appContext = context.applicationContext
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val soundPool = SoundPool.Builder()
         .setMaxStreams(1)
         .setAudioAttributes(
@@ -35,6 +39,7 @@ class CountdownVoicePlayer(context: Context) {
     private var pendingPlayback: PendingPlayback? = null
     private var textToSpeechReady = false
     private var pendingPhaseSpeech: PhaseSpeech? = null
+    private var activePhaseUtteranceId: String? = null
     private var earlyTickVolume = DEFAULT_EARLY_TICK_VOLUME
     private var tickVolume = DEFAULT_TICK_VOLUME
     private var loopCompleteVolume = DEFAULT_LOOP_COMPLETE_VOLUME
@@ -47,6 +52,24 @@ class CountdownVoicePlayer(context: Context) {
             textToSpeechReady = status == TextToSpeech.SUCCESS
             if (textToSpeechReady) {
                 tts.language = Locale.JAPAN
+                tts.setOnUtteranceProgressListener(
+                    object : UtteranceProgressListener() {
+                        override fun onStart(utteranceId: String?) = Unit
+
+                        override fun onDone(utteranceId: String?) {
+                            handlePhaseSpeechFinished(utteranceId)
+                        }
+
+                        @Deprecated("Deprecated in Java")
+                        override fun onError(utteranceId: String?) {
+                            handlePhaseSpeechFinished(utteranceId)
+                        }
+
+                        override fun onError(utteranceId: String?, errorCode: Int) {
+                            handlePhaseSpeechFinished(utteranceId)
+                        }
+                    }
+                )
                 pendingPhaseSpeech?.let { pendingSpeech ->
                     pendingPhaseSpeech = null
                     speakPhaseCueNow(pendingSpeech)
@@ -99,7 +122,14 @@ class CountdownVoicePlayer(context: Context) {
 
         val soundId = resolveSoundId(count, isNormalCountMode) ?: return
         pendingPhaseSpeech = null
-        stopTextToSpeech()
+        if (activePhaseUtteranceId != null) {
+            pendingPlayback = PendingPlayback(
+                count = count,
+                cueType = cueType,
+                isNormalCountMode = isNormalCountMode,
+            )
+            return
+        }
         if (loadedSoundIds.contains(soundId)) {
             pendingPlayback = null
             playLoadedSound(soundId, cueType)
@@ -128,6 +158,7 @@ class CountdownVoicePlayer(context: Context) {
     fun stop() {
         pendingPlayback = null
         pendingPhaseSpeech = null
+        activePhaseUtteranceId = null
         stopTextToSpeech()
         stopActivePlayback()
     }
@@ -145,6 +176,25 @@ class CountdownVoicePlayer(context: Context) {
 
     private fun stopTextToSpeech() {
         textToSpeech?.stop()
+    }
+
+    private fun handlePhaseSpeechFinished(utteranceId: String?) {
+        mainHandler.post {
+            if (utteranceId != activePhaseUtteranceId) return@post
+            activePhaseUtteranceId = null
+            val queuedPlayback = pendingPlayback ?: return@post
+            val soundId = resolveSoundId(
+                queuedPlayback.count,
+                queuedPlayback.isNormalCountMode,
+            ) ?: run {
+                pendingPlayback = null
+                return@post
+            }
+            if (loadedSoundIds.contains(soundId)) {
+                pendingPlayback = null
+                playLoadedSound(soundId, queuedPlayback.cueType)
+            }
+        }
     }
 
     private fun playLoadedSound(soundId: Int, cueType: CountdownCueType) {
@@ -196,13 +246,16 @@ class CountdownVoicePlayer(context: Context) {
                 ?: appContext.getString(R.string.timer_phase_fast)
             WorkoutPhase.Slow -> appContext.getString(R.string.timer_phase_slow)
         }
+        val utteranceId = "${phaseSpeech.count}-${phaseSpeech.voicePhase.name}-${phaseSpeech.voiceRoundTripCount ?: 0}"
+        activePhaseUtteranceId = utteranceId
         val status = tts.speak(
             speakText,
             TextToSpeech.QUEUE_FLUSH,
             null,
-            "${phaseSpeech.count}-${phaseSpeech.voicePhase.name}-${phaseSpeech.voiceRoundTripCount ?: 0}",
+            utteranceId,
         )
         if (status != TextToSpeech.SUCCESS) {
+            activePhaseUtteranceId = null
             Log.w(TAG, "Failed to speak countdown voice text=$speakText")
         }
     }
