@@ -26,6 +26,7 @@
     <string name="timer_toggle_vibration">バイブ</string>
     <string name="timer_toggle_countdown_sound">音声</string>
     <string name="timer_sound_settings_title">音声設定</string>
+    <string name="timer_loading_message">ロード中</string>
     <string name="timer_startup_background_button">起動背景</string>
     <string name="timer_startup_background_title">起動背景設定</string>
     <string name="timer_startup_background_instruction">ピンチで拡大縮小、ドラッグで移動</string>

@@ -822,7 +822,11 @@ private fun LaunchLoadingScreen(
     offsetXPct: Float,
     offsetYPct: Float,
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0F172A)),
+    ) {
         StartupBackgroundImage(
             modifier = Modifier.fillMaxSize(),
             scale = scale,
@@ -830,11 +834,13 @@ private fun LaunchLoadingScreen(
             offsetYPct = offsetYPct,
         )
         Text(
-            text = "ロード中",
+            text = stringResource(R.string.timer_loading_message),
             style = MaterialTheme.typography.headlineMedium,
             color = Color.White,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.Center),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .safeDrawingPadding(),
         )
     }
 }
