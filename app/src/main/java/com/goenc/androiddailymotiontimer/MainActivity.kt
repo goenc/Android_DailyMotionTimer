@@ -424,29 +424,33 @@ private fun WorkoutSecondTimerScreen(
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = headerCountText,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.weight(1f),
-                            color = RunningInfoTextColor,
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        TimerModeTabs(
+                            selectedMode = uiState.timerMode,
+                            enabled = uiState.canChangeTimerMode,
+                            onModeSelected = onTimerModeSelected,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(end = 48.dp),
                         )
-                        IconButton(onClick = { showSettingsDialog = true }) {
+                        IconButton(
+                            onClick = { showSettingsDialog = true },
+                            modifier = Modifier.align(Alignment.TopEnd),
+                        ) {
                             Icon(
                                 imageVector = Icons.Filled.Settings,
                                 contentDescription = stringResource(R.string.timer_sound_settings_title),
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(if (compactLayout) 2.dp else 4.dp))
-                    TimerModeTabs(
-                        selectedMode = uiState.timerMode,
-                        enabled = uiState.canChangeTimerMode,
-                        onModeSelected = onTimerModeSelected,
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = headerCountText,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                        color = RunningInfoTextColor,
                     )
                 }
 
@@ -647,9 +651,11 @@ private fun TimerModeTabs(
     selectedMode: TimerMode,
     enabled: Boolean,
     onModeSelected: (TimerMode) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val modes = listOf(TimerMode.Motion, TimerMode.NormalCount)
     TabRow(
+        modifier = modifier,
         selectedTabIndex = modes.indexOf(selectedMode),
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.primary,
