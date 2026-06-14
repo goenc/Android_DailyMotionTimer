@@ -26,12 +26,6 @@
     <string name="timer_toggle_vibration">バイブ</string>
     <string name="timer_toggle_countdown_sound">音声</string>
     <string name="timer_sound_settings_title">音声設定</string>
-    <string name="timer_startup_background_button">起動背景</string>
-    <string name="timer_startup_background_title">起動背景設定</string>
-    <string name="timer_startup_background_instruction">ピンチで拡大縮小、ドラッグで移動</string>
-    <string name="timer_startup_background_reset">初期化</string>
-    <string name="timer_startup_background_save">保存</string>
-    <string name="timer_startup_background_preview_scale">拡大率 %.2fx</string>
     <string name="timer_sound_mode_label">音声種類</string>
     <string name="timer_sound_credit_label">音声クレジット</string>
     <string name="timer_sound_credit_value">VOICEVOX: 冥鳴ひまり</string>

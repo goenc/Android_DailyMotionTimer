@@ -2,8 +2,4 @@
 <resources>
 
     <style name="Theme.AndroidDailyMotionTimer" parent="android:Theme.Material.Light.NoActionBar" />
-
-    <style name="Theme.AndroidDailyMotionTimer.Launcher" parent="Theme.AndroidDailyMotionTimer">
-        <item name="android:windowBackground">@drawable/launch_window_background</item>
-    </style>
 </resources>
