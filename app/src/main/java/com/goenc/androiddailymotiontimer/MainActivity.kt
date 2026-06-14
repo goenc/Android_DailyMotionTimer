@@ -176,7 +176,7 @@ private fun WorkoutSecondTimerScreen(
     val secondOptions = (MIN_SECONDS..MAX_SECONDS).toList()
     val secondListState = rememberLazyListState()
     var hasCenteredInitialSelection by remember { mutableStateOf(false) }
-    var showLaunchOverlay by remember { mutableStateOf(true) }
+    var showLaunchOverlay by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showStartupBackgroundDialog by remember { mutableStateOf(false) }
     val latestUiState by rememberUpdatedState(uiState)
@@ -265,8 +265,9 @@ private fun WorkoutSecondTimerScreen(
         countdownCuePlayer.stop()
     }
 
-    LaunchedEffect(hasCenteredInitialSelection) {
-        if (hasCenteredInitialSelection) {
+    LaunchedEffect(uiState.isSettingsReady, hasCenteredInitialSelection) {
+        if (uiState.isSettingsReady && hasCenteredInitialSelection && !showLaunchOverlay) {
+            showLaunchOverlay = true
             delay(1200)
             showLaunchOverlay = false
         }

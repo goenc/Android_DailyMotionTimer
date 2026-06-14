@@ -129,6 +129,7 @@ data class WorkoutTimerUiState(
     val startupBackgroundScale: Float = DEFAULT_STARTUP_BACKGROUND_SCALE,
     val startupBackgroundOffsetXPct: Float = DEFAULT_STARTUP_BACKGROUND_OFFSET_X_PCT,
     val startupBackgroundOffsetYPct: Float = DEFAULT_STARTUP_BACKGROUND_OFFSET_Y_PCT,
+    val isSettingsReady: Boolean = false,
 ) {
     val vibrationEnabled: Boolean
         get() = tickVibrationEnabled || loopVibrationEnabled
@@ -625,6 +626,7 @@ class WorkoutSecondTimerViewModel(
                 startupBackgroundScale = settings.startupBackgroundScale,
                 startupBackgroundOffsetXPct = settings.startupBackgroundOffsetXPct,
                 startupBackgroundOffsetYPct = settings.startupBackgroundOffsetYPct,
+                isSettingsReady = true,
             )
         }
         persistSessionSnapshot()
