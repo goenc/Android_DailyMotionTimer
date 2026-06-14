@@ -7,8 +7,17 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
+
+data class StartupBackgroundTransform(
+    val scale: Float = DEFAULT_STARTUP_BACKGROUND_SCALE,
+    val offsetXPct: Float = DEFAULT_STARTUP_BACKGROUND_OFFSET_X_PCT,
+    val offsetYPct: Float = DEFAULT_STARTUP_BACKGROUND_OFFSET_Y_PCT,
+)
 
 data class WorkoutTimerSettings(
     val timerMode: TimerMode = TimerMode.Motion,
@@ -83,6 +92,17 @@ class WorkoutSettingsStore(context: Context) {
                     ?: DEFAULT_STARTUP_BACKGROUND_OFFSET_Y_PCT
                 ).coerceIn(MIN_STARTUP_BACKGROUND_OFFSET_PCT, MAX_STARTUP_BACKGROUND_OFFSET_PCT),
         )
+    }
+
+    fun readStartupBackgroundTransformSync(): StartupBackgroundTransform {
+        return runBlocking(Dispatchers.IO) {
+            val settings = settings.first()
+            StartupBackgroundTransform(
+                scale = settings.startupBackgroundScale,
+                offsetXPct = settings.startupBackgroundOffsetXPct,
+                offsetYPct = settings.startupBackgroundOffsetYPct,
+            )
+        }
     }
 
     suspend fun save(settings: WorkoutTimerSettings) {

@@ -104,8 +104,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var countdownVoicePlayer: CountdownVoicePlayer
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(R.style.Theme_AndroidDailyMotionTimer)
         super.onCreate(savedInstanceState)
+        val initialStartupBackgroundTransform =
+            WorkoutSettingsStore(applicationContext).readStartupBackgroundTransformSync()
         timerViewModel = ViewModelProvider(this)[WorkoutSecondTimerViewModel::class.java]
         countdownVoicePlayer = CountdownVoicePlayer(applicationContext)
         enableEdgeToEdge()
@@ -114,6 +115,7 @@ class MainActivity : ComponentActivity() {
                 val uiState by timerViewModel.uiState.collectAsState()
                 WorkoutSecondTimerScreen(
                     uiState = uiState,
+                    initialStartupBackgroundTransform = initialStartupBackgroundTransform,
                     vibrationEvents = timerViewModel.vibrationEvents,
                     countdownSoundEvents = timerViewModel.countdownSoundEvents,
                     onSecondSelected = timerViewModel::setSelectedSeconds,
@@ -150,6 +152,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun WorkoutSecondTimerScreen(
     uiState: WorkoutTimerUiState,
+    initialStartupBackgroundTransform: StartupBackgroundTransform,
     vibrationEvents: SharedFlow<VibrationEvent>,
     countdownSoundEvents: SharedFlow<CountdownSoundEvent>,
     onSecondSelected: (Int) -> Unit,
@@ -184,6 +187,21 @@ private fun WorkoutSecondTimerScreen(
     val idleBackgroundColor = MaterialTheme.colorScheme.surfaceVariant
     val timerBackgroundColor = remember(uiState, idleBackgroundColor) {
         timerBackgroundColor(uiState, idleBackgroundColor)
+    }
+    val launchBackgroundScale = if (uiState.isSettingsReady) {
+        uiState.startupBackgroundScale
+    } else {
+        initialStartupBackgroundTransform.scale
+    }
+    val launchBackgroundOffsetXPct = if (uiState.isSettingsReady) {
+        uiState.startupBackgroundOffsetXPct
+    } else {
+        initialStartupBackgroundTransform.offsetXPct
+    }
+    val launchBackgroundOffsetYPct = if (uiState.isSettingsReady) {
+        uiState.startupBackgroundOffsetYPct
+    } else {
+        initialStartupBackgroundTransform.offsetYPct
     }
 
     DisposableEffect(view, uiState.isRunning) {
@@ -266,11 +284,20 @@ private fun WorkoutSecondTimerScreen(
         countdownCuePlayer.stop()
     }
 
-    LaunchedEffect(uiState.isSettingsReady, hasCenteredInitialSelection) {
-        if (uiState.isSettingsReady && hasCenteredInitialSelection) {
+    LaunchedEffect(uiState.isSettingsReady) {
+        if (uiState.isSettingsReady) {
             delay(1200)
             showLaunchOverlay = false
         }
+    }
+
+    if (showLaunchOverlay) {
+        LaunchLoadingScreen(
+            scale = launchBackgroundScale,
+            offsetXPct = launchBackgroundOffsetXPct,
+            offsetYPct = launchBackgroundOffsetYPct,
+        )
+        return
     }
 
     Surface(
@@ -595,24 +622,6 @@ private fun WorkoutSecondTimerScreen(
                 }
                 }
             }
-
-            if (showLaunchOverlay) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    StartupBackgroundImage(
-                        modifier = Modifier.fillMaxSize(),
-                        scale = uiState.startupBackgroundScale,
-                        offsetXPct = uiState.startupBackgroundOffsetXPct,
-                        offsetYPct = uiState.startupBackgroundOffsetYPct,
-                    )
-                    Text(
-                        text = "ロード中",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
-                }
-            }
         }
     }
 
@@ -804,6 +813,29 @@ private fun CountdownSoundSettingsDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LaunchLoadingScreen(
+    scale: Float,
+    offsetXPct: Float,
+    offsetYPct: Float,
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        StartupBackgroundImage(
+            modifier = Modifier.fillMaxSize(),
+            scale = scale,
+            offsetXPct = offsetXPct,
+            offsetYPct = offsetYPct,
+        )
+        Text(
+            text = "ロード中",
+            style = MaterialTheme.typography.headlineMedium,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.Center),
+        )
     }
 }
 
