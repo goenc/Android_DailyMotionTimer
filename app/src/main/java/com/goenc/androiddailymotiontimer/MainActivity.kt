@@ -316,23 +316,37 @@ private fun WorkoutSecondTimerScreen(
             ) {
                 val compactLayout = maxHeight < 760.dp
             val countFontSize = when {
+                uiState.timerMode == TimerMode.NormalCount && maxHeight < 620.dp -> 132.sp
+                uiState.timerMode == TimerMode.NormalCount && maxHeight < 700.dp -> 154.sp
+                uiState.timerMode == TimerMode.NormalCount && maxHeight < 760.dp -> 178.sp
+                uiState.timerMode == TimerMode.NormalCount -> 196.sp
                 maxHeight < 620.dp -> 116.sp
                 maxHeight < 700.dp -> 136.sp
                 maxHeight < 760.dp -> 158.sp
                 else -> 176.sp
             }
             val countLineHeight = when {
+                uiState.timerMode == TimerMode.NormalCount && maxHeight < 620.dp -> 124.sp
+                uiState.timerMode == TimerMode.NormalCount && maxHeight < 700.dp -> 144.sp
+                uiState.timerMode == TimerMode.NormalCount && maxHeight < 760.dp -> 168.sp
+                uiState.timerMode == TimerMode.NormalCount -> 186.sp
                 maxHeight < 620.dp -> 110.sp
                 maxHeight < 700.dp -> 128.sp
                 maxHeight < 760.dp -> 150.sp
                 else -> 166.sp
             }
             val phaseFontSize = when {
+                uiState.timerMode == TimerMode.NormalCount && maxHeight < 620.dp -> 38.sp
+                uiState.timerMode == TimerMode.NormalCount && maxHeight < 760.dp -> 42.sp
+                uiState.timerMode == TimerMode.NormalCount -> 46.sp
                 maxHeight < 620.dp -> 32.sp
                 maxHeight < 760.dp -> 36.sp
                 else -> 40.sp
             }
             val phaseLineHeight = when {
+                uiState.timerMode == TimerMode.NormalCount && maxHeight < 620.dp -> 42.sp
+                uiState.timerMode == TimerMode.NormalCount && maxHeight < 760.dp -> 46.sp
+                uiState.timerMode == TimerMode.NormalCount -> 50.sp
                 maxHeight < 620.dp -> 36.sp
                 maxHeight < 760.dp -> 40.sp
                 else -> 44.sp
@@ -393,13 +407,7 @@ private fun WorkoutSecondTimerScreen(
             } else {
                 stringResource(R.string.timer_action_pause)
             }
-            val headerCountText = when (uiState.timerMode) {
-                TimerMode.Motion -> stringResource(R.string.round_trip_count, uiState.roundTripCount)
-                TimerMode.NormalCount -> stringResource(
-                    R.string.normal_count_limit_value,
-                    uiState.normalCountMaxCount,
-                )
-            }
+            val headerCountText = stringResource(R.string.round_trip_count, uiState.roundTripCount)
 
             LaunchedEffect(Unit) {
                 while (
@@ -456,16 +464,18 @@ private fun WorkoutSecondTimerScreen(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = headerCountText,
-                        fontSize = headerCountFontSize,
-                        lineHeight = headerCountLineHeight,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                        color = HeaderCountColor,
-                    )
+                    if (uiState.timerMode == TimerMode.Motion) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = headerCountText,
+                            fontSize = headerCountFontSize,
+                            lineHeight = headerCountLineHeight,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = HeaderCountColor,
+                        )
+                    }
                 }
 
                 Column(
