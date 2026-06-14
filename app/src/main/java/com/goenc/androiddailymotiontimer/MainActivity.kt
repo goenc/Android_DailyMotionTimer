@@ -93,6 +93,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.roundToInt
 
 private val PreparationCountColor = Color(0xFFFF9800)
+private val HeaderCountColor = Color(0xFFFF7A00)
 private val ProgressGreenBackground = Color(0xFFD9F4D1)
 private val ProgressWarmLowBackground = Color(0xFFFFDA9E)
 private val ProgressWarmMidBackground = Color(0xFFFFBC73)
@@ -315,16 +316,16 @@ private fun WorkoutSecondTimerScreen(
             ) {
                 val compactLayout = maxHeight < 760.dp
             val countFontSize = when {
-                maxHeight < 620.dp -> 132.sp
-                maxHeight < 700.dp -> 154.sp
-                maxHeight < 760.dp -> 178.sp
-                else -> 196.sp
+                maxHeight < 620.dp -> 116.sp
+                maxHeight < 700.dp -> 136.sp
+                maxHeight < 760.dp -> 158.sp
+                else -> 176.sp
             }
             val countLineHeight = when {
-                maxHeight < 620.dp -> 124.sp
-                maxHeight < 700.dp -> 144.sp
-                maxHeight < 760.dp -> 168.sp
-                else -> 186.sp
+                maxHeight < 620.dp -> 110.sp
+                maxHeight < 700.dp -> 128.sp
+                maxHeight < 760.dp -> 150.sp
+                else -> 166.sp
             }
             val phaseFontSize = when {
                 maxHeight < 620.dp -> 32.sp
@@ -347,6 +348,18 @@ private fun WorkoutSecondTimerScreen(
                 maxHeight < 700.dp -> 58.sp
                 maxHeight < 760.dp -> 62.sp
                 else -> 66.sp
+            }
+            val headerCountFontSize = when {
+                maxHeight < 620.dp -> 34.sp
+                maxHeight < 700.dp -> 38.sp
+                maxHeight < 760.dp -> 42.sp
+                else -> 46.sp
+            }
+            val headerCountLineHeight = when {
+                maxHeight < 620.dp -> 38.sp
+                maxHeight < 700.dp -> 42.sp
+                maxHeight < 760.dp -> 46.sp
+                else -> 50.sp
             }
             val countSectionSpacing = if (compactLayout) 2.dp else 4.dp
             val secondChipWidth = 72.dp
@@ -446,11 +459,12 @@ private fun WorkoutSecondTimerScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = headerCountText,
-                        style = MaterialTheme.typography.titleLarge,
+                        fontSize = headerCountFontSize,
+                        lineHeight = headerCountLineHeight,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
-                        color = RunningInfoTextColor,
+                        color = HeaderCountColor,
                     )
                 }
 
