@@ -38,6 +38,13 @@ const val MIN_VIBRATION_LEVEL = 1
 const val MAX_VIBRATION_LEVEL = 4
 const val DEFAULT_NORMAL_VIBRATION_LEVEL = 2
 const val DEFAULT_COMPLETE_VIBRATION_LEVEL = 2
+const val MIN_STARTUP_BACKGROUND_SCALE = 1.0f
+const val MAX_STARTUP_BACKGROUND_SCALE = 1.5f
+const val DEFAULT_STARTUP_BACKGROUND_SCALE = 1.08f
+const val MIN_STARTUP_BACKGROUND_OFFSET_PCT = -0.5f
+const val MAX_STARTUP_BACKGROUND_OFFSET_PCT = 0.5f
+const val DEFAULT_STARTUP_BACKGROUND_OFFSET_X_PCT = 0.078f
+const val DEFAULT_STARTUP_BACKGROUND_OFFSET_Y_PCT = 0.015f
 const val INITIAL_ROUND_TRIP_COUNT = 1
 
 private const val PREPARATION_SECONDS = 10
@@ -119,6 +126,10 @@ data class WorkoutTimerUiState(
     val loopCompleteVolume: Int = DEFAULT_LOOP_COMPLETE_VOLUME,
     val normalVibrationLevel: Int = DEFAULT_NORMAL_VIBRATION_LEVEL,
     val completeVibrationLevel: Int = DEFAULT_COMPLETE_VIBRATION_LEVEL,
+    val startupBackgroundScale: Float = DEFAULT_STARTUP_BACKGROUND_SCALE,
+    val startupBackgroundOffsetXPct: Float = DEFAULT_STARTUP_BACKGROUND_OFFSET_X_PCT,
+    val startupBackgroundOffsetYPct: Float = DEFAULT_STARTUP_BACKGROUND_OFFSET_Y_PCT,
+    val isSettingsReady: Boolean = false,
 ) {
     val vibrationEnabled: Boolean
         get() = tickVibrationEnabled || loopVibrationEnabled
@@ -297,6 +308,30 @@ class WorkoutSecondTimerViewModel(
         _uiState.update {
             it.copy(
                 completeVibrationLevel = value.coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL)
+            )
+        }
+        persistCurrentSettings()
+    }
+
+    fun setStartupBackgroundTransform(
+        scale: Float,
+        offsetXPct: Float,
+        offsetYPct: Float,
+    ) {
+        _uiState.update {
+            it.copy(
+                startupBackgroundScale = scale.coerceIn(
+                    MIN_STARTUP_BACKGROUND_SCALE,
+                    MAX_STARTUP_BACKGROUND_SCALE,
+                ),
+                startupBackgroundOffsetXPct = offsetXPct.coerceIn(
+                    MIN_STARTUP_BACKGROUND_OFFSET_PCT,
+                    MAX_STARTUP_BACKGROUND_OFFSET_PCT,
+                ),
+                startupBackgroundOffsetYPct = offsetYPct.coerceIn(
+                    MIN_STARTUP_BACKGROUND_OFFSET_PCT,
+                    MAX_STARTUP_BACKGROUND_OFFSET_PCT,
+                ),
             )
         }
         persistCurrentSettings()
@@ -588,6 +623,10 @@ class WorkoutSecondTimerViewModel(
                 loopCompleteVolume = settings.loopCompleteVolume,
                 normalVibrationLevel = settings.normalVibrationLevel,
                 completeVibrationLevel = settings.completeVibrationLevel,
+                startupBackgroundScale = settings.startupBackgroundScale,
+                startupBackgroundOffsetXPct = settings.startupBackgroundOffsetXPct,
+                startupBackgroundOffsetYPct = settings.startupBackgroundOffsetYPct,
+                isSettingsReady = true,
             )
         }
         persistSessionSnapshot()
@@ -862,6 +901,18 @@ class WorkoutSecondTimerViewModel(
                     completeVibrationLevel = state.completeVibrationLevel.coerceIn(
                         MIN_VIBRATION_LEVEL,
                         MAX_VIBRATION_LEVEL,
+                    ),
+                    startupBackgroundScale = state.startupBackgroundScale.coerceIn(
+                        MIN_STARTUP_BACKGROUND_SCALE,
+                        MAX_STARTUP_BACKGROUND_SCALE,
+                    ),
+                    startupBackgroundOffsetXPct = state.startupBackgroundOffsetXPct.coerceIn(
+                        MIN_STARTUP_BACKGROUND_OFFSET_PCT,
+                        MAX_STARTUP_BACKGROUND_OFFSET_PCT,
+                    ),
+                    startupBackgroundOffsetYPct = state.startupBackgroundOffsetYPct.coerceIn(
+                        MIN_STARTUP_BACKGROUND_OFFSET_PCT,
+                        MAX_STARTUP_BACKGROUND_OFFSET_PCT,
                     ),
                 )
             )
