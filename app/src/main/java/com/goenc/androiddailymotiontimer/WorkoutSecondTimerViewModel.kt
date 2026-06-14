@@ -106,6 +106,8 @@ enum class TimerSessionStatus {
 data class WorkoutTimerUiState(
     val timerMode: TimerMode = TimerMode.Motion,
     val selectedSeconds: Int = DEFAULT_SECONDS,
+    val fastPhaseDurationSeconds: Int = DEFAULT_SECONDS,
+    val slowPhaseDurationSeconds: Int = DEFAULT_SECONDS,
     val remainingSeconds: Int = DEFAULT_SECONDS,
     val normalCount: Int = INITIAL_ROUND_TRIP_COUNT,
     val preparationRemainingSeconds: Int = PREPARATION_SECONDS,
@@ -234,7 +236,7 @@ class WorkoutSecondTimerViewModel(
     fun setTimerMode(mode: TimerMode) {
         val state = _uiState.value
         if (!state.canChangeTimerMode || state.timerMode == mode) return
-        resetAllProgress(state.selectedSeconds, resetRoundTrips = true)
+        resetAllProgress(state.fastPhaseDurationSeconds, resetRoundTrips = true)
         sessionStatus = TimerSessionStatus.Idle
         publishUiState()
         _uiState.update { it.copy(timerMode = mode) }
@@ -247,7 +249,19 @@ class WorkoutSecondTimerViewModel(
         resetAllProgress(clampedSeconds, resetRoundTrips = true)
         sessionStatus = TimerSessionStatus.Idle
         publishUiState()
-        _uiState.update { it.copy(selectedSeconds = clampedSeconds) }
+        _uiState.update {
+            it.copy(
+                selectedSeconds = clampedSeconds,
+                fastPhaseDurationSeconds = clampedSeconds,
+            )
+        }
+        persistCurrentSettings()
+    }
+
+    fun setSlowPhaseDurationSeconds(seconds: Int) {
+        if (!_uiState.value.canChangeSeconds) return
+        val clampedSeconds = seconds.coerceIn(MIN_SECONDS, MAX_SECONDS)
+        _uiState.update { it.copy(slowPhaseDurationSeconds = clampedSeconds) }
         persistCurrentSettings()
     }
 
@@ -444,7 +458,7 @@ class WorkoutSecondTimerViewModel(
 
     fun stop() {
         if (sessionStatus == TimerSessionStatus.Idle || sessionStatus == TimerSessionStatus.Completed) return
-        resetAllProgress(_uiState.value.selectedSeconds, resetRoundTrips = true)
+        resetAllProgress(_uiState.value.fastPhaseDurationSeconds, resetRoundTrips = true)
         sessionStatus = TimerSessionStatus.Idle
         publishUiState()
     }
@@ -455,7 +469,7 @@ class WorkoutSecondTimerViewModel(
     }
 
     private fun restartFromPreparation() {
-        resetAllProgress(_uiState.value.selectedSeconds, resetRoundTrips = true)
+        resetAllProgress(_uiState.value.fastPhaseDurationSeconds, resetRoundTrips = true)
         startPreparationRun()
     }
 
@@ -501,10 +515,10 @@ class WorkoutSecondTimerViewModel(
         }
 
         val state = _uiState.value
-        val engine = WorkoutTimerEngine(state.selectedSeconds)
         val totalActiveElapsedMs = currentActiveElapsedMs()
 
         while (true) {
+            val engine = phaseEngine(_uiState.value, currentPhase)
             val nextBoundaryElapsedMs = nextBoundaryElapsedMs(engine)
             val phaseFinished = totalActiveElapsedMs >= currentPhaseStartedAtElapsedMs + engine.phaseDurationMs
 
@@ -518,7 +532,7 @@ class WorkoutSecondTimerViewModel(
                 phaseFinished && currentPhase == WorkoutPhase.Fast -> {
                     currentPhase = WorkoutPhase.Slow
                     currentPhaseStartedAtElapsedMs += engine.phaseDurationMs
-                    displayedRemainingSeconds = engine.initialDisplayValue()
+                    displayedRemainingSeconds = phaseEngine(_uiState.value, currentPhase).initialDisplayValue()
                     nextBoundaryIndex = 1
                     hasPlayedActiveInitialDisplayCue = false
                     // Keep the phase-start cue aligned with the refreshed display.
@@ -534,7 +548,7 @@ class WorkoutSecondTimerViewModel(
                     roundTripCount += 1
                     currentPhase = WorkoutPhase.Fast
                     currentPhaseStartedAtElapsedMs += engine.phaseDurationMs
-                    displayedRemainingSeconds = engine.initialDisplayValue()
+                    displayedRemainingSeconds = phaseEngine(_uiState.value, currentPhase).initialDisplayValue()
                     nextBoundaryIndex = 1
                     hasPlayedActiveInitialDisplayCue = false
                     // Keep the phase-start cue aligned with the refreshed display.
@@ -598,11 +612,16 @@ class WorkoutSecondTimerViewModel(
 
     private suspend fun restoreSettings() {
         val settings = settingsStore.settings.first()
-        restoreSessionState(settings.selectedSeconds)
+        restoreSessionState(
+            fastPhaseDurationSeconds = settings.fastPhaseDurationSeconds,
+            slowPhaseDurationSeconds = settings.slowPhaseDurationSeconds,
+        )
         _uiState.update { state ->
             state.copy(
                 timerMode = settings.timerMode,
-                selectedSeconds = settings.selectedSeconds,
+                selectedSeconds = settings.fastPhaseDurationSeconds,
+                fastPhaseDurationSeconds = settings.fastPhaseDurationSeconds,
+                slowPhaseDurationSeconds = settings.slowPhaseDurationSeconds,
                 remainingSeconds = displayedRemainingSeconds,
                 normalCount = displayedNormalCount,
                 preparationRemainingSeconds = displayedPreparationSeconds,
@@ -632,8 +651,12 @@ class WorkoutSecondTimerViewModel(
         persistSessionSnapshot()
     }
 
-    private fun restoreSessionState(selectedSeconds: Int) {
-        val engine = WorkoutTimerEngine(selectedSeconds)
+    private fun restoreSessionState(
+        fastPhaseDurationSeconds: Int,
+        slowPhaseDurationSeconds: Int,
+    ) {
+        val fastEngine = WorkoutTimerEngine(fastPhaseDurationSeconds)
+        val slowEngine = WorkoutTimerEngine(slowPhaseDurationSeconds)
         val restoredStatus = savedStateHandle.get<String>(SESSION_STATUS_KEY)
             ?.let { name -> TimerSessionStatus.entries.firstOrNull { it.name == name } }
             ?: TimerSessionStatus.Idle
@@ -650,12 +673,16 @@ class WorkoutSecondTimerViewModel(
         currentPhaseStartedAtElapsedMs = max(
             0L,
             savedStateHandle.get<Long>(PHASE_STARTED_AT_MS_KEY)
-                ?: if (restoredPhase == WorkoutPhase.Slow) engine.phaseDurationMs else 0L,
+                ?: if (restoredPhase == WorkoutPhase.Slow) fastEngine.phaseDurationMs else 0L,
         )
+        val restoredEngine = when (restoredPhase) {
+            WorkoutPhase.Fast -> fastEngine
+            WorkoutPhase.Slow -> slowEngine
+        }
         nextBoundaryIndex = (savedStateHandle.get<Int>(NEXT_BOUNDARY_INDEX_KEY)
-            ?: 1).coerceIn(1, engine.boundaryCount + 1)
+            ?: 1).coerceIn(1, restoredEngine.boundaryCount + 1)
         displayedRemainingSeconds = (savedStateHandle.get<Int>(REMAINING_SECONDS_KEY)
-            ?: engine.initialDisplayValue()).coerceIn(0, selectedSeconds)
+            ?: restoredEngine.initialDisplayValue()).coerceIn(0, restoredEngine.selectedSeconds)
         displayedNormalCount = max(
             INITIAL_ROUND_TRIP_COUNT,
             savedStateHandle.get<Int>(NORMAL_COUNT_KEY) ?: INITIAL_ROUND_TRIP_COUNT,
@@ -670,7 +697,7 @@ class WorkoutSecondTimerViewModel(
         }
 
         if (sessionStatus == TimerSessionStatus.Idle) {
-            resetAllProgress(selectedSeconds, resetRoundTrips = true)
+            resetAllProgress(fastPhaseDurationSeconds, resetRoundTrips = true)
         } else {
             activeRunStartedAtMs = null
             preparationRunStartedAtMs = null
@@ -883,6 +910,8 @@ class WorkoutSecondTimerViewModel(
                 WorkoutTimerSettings(
                     timerMode = state.timerMode,
                     selectedSeconds = state.selectedSeconds,
+                    fastPhaseDurationSeconds = state.fastPhaseDurationSeconds,
+                    slowPhaseDurationSeconds = state.slowPhaseDurationSeconds,
                     loopEnabled = state.loopEnabled,
                     maxLoopCount = state.maxLoopCount,
                     normalCountMaxCount = state.normalCountMaxCount,
@@ -962,6 +991,18 @@ class WorkoutSecondTimerViewModel(
     private fun nextBoundaryElapsedMs(engine: WorkoutTimerEngine): Long? {
         if (nextBoundaryIndex > engine.boundaryCount) return null
         return currentPhaseStartedAtElapsedMs + engine.boundaryElapsedMs(nextBoundaryIndex)
+    }
+
+    private fun phaseEngine(
+        state: WorkoutTimerUiState,
+        phase: WorkoutPhase,
+    ): WorkoutTimerEngine {
+        return WorkoutTimerEngine(
+            when (phase) {
+                WorkoutPhase.Fast -> state.fastPhaseDurationSeconds
+                WorkoutPhase.Slow -> state.slowPhaseDurationSeconds
+            }
+        )
     }
 
     override fun onCleared() {

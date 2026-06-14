@@ -24,6 +24,8 @@ data class StartupBackgroundTransform(
 data class WorkoutTimerSettings(
     val timerMode: TimerMode = TimerMode.Motion,
     val selectedSeconds: Int = DEFAULT_SECONDS,
+    val fastPhaseDurationSeconds: Int = DEFAULT_SECONDS,
+    val slowPhaseDurationSeconds: Int = DEFAULT_SECONDS,
     val loopEnabled: Boolean = false,
     val maxLoopCount: Int = DEFAULT_MAX_LOOP_COUNT,
     val normalCountMaxCount: Int = DEFAULT_MAX_LOOP_COUNT,
@@ -52,6 +54,16 @@ class WorkoutSettingsStore(context: Context) {
             ) { TimerMode.Motion },
             selectedSeconds = (preferences[SELECTED_SECONDS_KEY] ?: DEFAULT_SECONDS)
                 .coerceIn(MIN_SECONDS, MAX_SECONDS),
+            fastPhaseDurationSeconds = (
+                preferences[FAST_PHASE_DURATION_SECONDS_KEY]
+                    ?: preferences[SELECTED_SECONDS_KEY]
+                    ?: DEFAULT_SECONDS
+                ).coerceIn(MIN_SECONDS, MAX_SECONDS),
+            slowPhaseDurationSeconds = (
+                preferences[SLOW_PHASE_DURATION_SECONDS_KEY]
+                    ?: preferences[SELECTED_SECONDS_KEY]
+                    ?: DEFAULT_SECONDS
+                ).coerceIn(MIN_SECONDS, MAX_SECONDS),
             loopEnabled = preferences[LOOP_ENABLED_KEY] ?: false,
             maxLoopCount = normalizeLoopCount(
                 preferences[MAX_LOOP_COUNT_KEY] ?: DEFAULT_MAX_LOOP_COUNT,
@@ -109,6 +121,10 @@ class WorkoutSettingsStore(context: Context) {
         dataStore.edit { preferences ->
             preferences[TIMER_MODE_KEY] = settings.timerMode.ordinal
             preferences[SELECTED_SECONDS_KEY] = settings.selectedSeconds
+            preferences[FAST_PHASE_DURATION_SECONDS_KEY] =
+                settings.fastPhaseDurationSeconds.coerceIn(MIN_SECONDS, MAX_SECONDS)
+            preferences[SLOW_PHASE_DURATION_SECONDS_KEY] =
+                settings.slowPhaseDurationSeconds.coerceIn(MIN_SECONDS, MAX_SECONDS)
             preferences[LOOP_ENABLED_KEY] = settings.loopEnabled
             preferences[MAX_LOOP_COUNT_KEY] = normalizeLoopCount(settings.maxLoopCount)
             preferences[NORMAL_COUNT_MAX_COUNT_KEY] = normalizeLoopCount(settings.normalCountMaxCount)
@@ -156,6 +172,8 @@ class WorkoutSettingsStore(context: Context) {
 
         private val TIMER_MODE_KEY = intPreferencesKey("timer_mode")
         private val SELECTED_SECONDS_KEY = intPreferencesKey("selected_seconds")
+        private val FAST_PHASE_DURATION_SECONDS_KEY = intPreferencesKey("fast_phase_duration_seconds")
+        private val SLOW_PHASE_DURATION_SECONDS_KEY = intPreferencesKey("slow_phase_duration_seconds")
         private val LOOP_ENABLED_KEY = booleanPreferencesKey("loop_enabled")
         private val MAX_LOOP_COUNT_KEY = intPreferencesKey("max_loop_count")
         private val NORMAL_COUNT_MAX_COUNT_KEY = intPreferencesKey("normal_count_max_count")

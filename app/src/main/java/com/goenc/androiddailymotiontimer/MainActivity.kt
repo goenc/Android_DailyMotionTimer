@@ -121,7 +121,8 @@ class MainActivity : ComponentActivity() {
                     initialStartupBackgroundTransform = initialStartupBackgroundTransform,
                     vibrationEvents = timerViewModel.vibrationEvents,
                     countdownSoundEvents = timerViewModel.countdownSoundEvents,
-                    onSecondSelected = timerViewModel::setSelectedSeconds,
+                    onFastPhaseDurationSelected = timerViewModel::setSelectedSeconds,
+                    onSlowPhaseDurationSelected = timerViewModel::setSlowPhaseDurationSeconds,
                     onLoopChanged = timerViewModel::setLoopEnabled,
                     onMaxLoopCountChanged = timerViewModel::setMaxLoopCount,
                     onNormalCountMaxCountChanged = timerViewModel::setNormalCountMaxCount,
@@ -158,7 +159,8 @@ private fun WorkoutSecondTimerScreen(
     initialStartupBackgroundTransform: StartupBackgroundTransform,
     vibrationEvents: SharedFlow<VibrationEvent>,
     countdownSoundEvents: SharedFlow<CountdownSoundEvent>,
-    onSecondSelected: (Int) -> Unit,
+    onFastPhaseDurationSelected: (Int) -> Unit,
+    onSlowPhaseDurationSelected: (Int) -> Unit,
     onLoopChanged: (Boolean) -> Unit,
     onMaxLoopCountChanged: (Int) -> Unit,
     onNormalCountMaxCountChanged: (Int) -> Unit,
@@ -418,9 +420,10 @@ private fun WorkoutSecondTimerScreen(
                 }
                 delay(100)
                 if (latestUiState.timerMode == TimerMode.Motion) {
-                    val startupSelectedIndex = latestUiState.selectedSeconds - MIN_SECONDS
-                    fastSecondListState.scrollToItem(startupSelectedIndex)
-                    slowSecondListState.scrollToItem(startupSelectedIndex)
+                    val fastStartupSelectedIndex = latestUiState.fastPhaseDurationSeconds - MIN_SECONDS
+                    val slowStartupSelectedIndex = latestUiState.slowPhaseDurationSeconds - MIN_SECONDS
+                    fastSecondListState.scrollToItem(fastStartupSelectedIndex)
+                    slowSecondListState.scrollToItem(slowStartupSelectedIndex)
                 }
                 hasCenteredInitialSelection = true
             }
@@ -542,25 +545,25 @@ private fun WorkoutSecondTimerScreen(
                     ) {
                         PhaseDurationOptionRow(
                             label = stringResource(R.string.fast_phase_duration_label),
-                            selectedSeconds = uiState.selectedSeconds,
+                            selectedSeconds = uiState.fastPhaseDurationSeconds,
                             enabled = uiState.canChangeSeconds,
                             secondOptions = secondOptions,
                             listState = fastSecondListState,
                             secondsRowHorizontalPadding = secondsRowHorizontalPadding,
                             secondChipSpacing = secondChipSpacing,
                             secondChipWidth = secondChipWidth,
-                            onSecondSelected = onSecondSelected,
+                            onSecondSelected = onFastPhaseDurationSelected,
                         )
                         PhaseDurationOptionRow(
                             label = stringResource(R.string.slow_phase_duration_label),
-                            selectedSeconds = uiState.selectedSeconds,
+                            selectedSeconds = uiState.slowPhaseDurationSeconds,
                             enabled = uiState.canChangeSeconds,
                             secondOptions = secondOptions,
                             listState = slowSecondListState,
                             secondsRowHorizontalPadding = secondsRowHorizontalPadding,
                             secondChipSpacing = secondChipSpacing,
                             secondChipWidth = secondChipWidth,
-                            onSecondSelected = onSecondSelected,
+                            onSecondSelected = onSlowPhaseDurationSelected,
                         )
                         if (!uiState.hasStarted) {
                             LoopCountSelectorRow(
