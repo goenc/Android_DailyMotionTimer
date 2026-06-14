@@ -104,6 +104,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var countdownVoicePlayer: CountdownVoicePlayer
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.Theme_AndroidDailyMotionTimer)
         super.onCreate(savedInstanceState)
         timerViewModel = ViewModelProvider(this)[WorkoutSecondTimerViewModel::class.java]
         countdownVoicePlayer = CountdownVoicePlayer(applicationContext)
