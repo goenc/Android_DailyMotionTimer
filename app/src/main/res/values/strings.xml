@@ -8,6 +8,8 @@
     <string name="timer_phase_preparation">準備</string>
     <string name="timer_phase_fast">下降</string>
     <string name="timer_phase_slow">上昇</string>
+    <string name="fast_phase_duration_label">下降時間</string>
+    <string name="slow_phase_duration_label">上昇時間</string>
     <string name="timer_phase_normal_count">カウント</string>
     <string name="timer_phase_complete">完了</string>
     <string name="round_trip_count">回数 %1$d</string>

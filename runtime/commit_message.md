@@ -1,5 +1,6 @@
-DataStoreの重複生成を修正
+秒数指定UIを下降上昇の二段表示に変更
 
-・理由：起動時に同じ設定ファイル向けのDataStoreが複数生成され、アプリがクラッシュしていたため
-・変更点：設定用DataStoreをContext拡張のsingleton delegateに集約
-・確認内容：assembleDebug成功、実機へのinstallDebug成功、MainActivity起動後にAndroidRuntimeのFATALなし、対象プロセス生存確認済み
+・理由：経過時間表示を外し、メイン画面上部の余裕を増やすため
+・変更点：経過時間表示を削除し、秒数指定UIを下降時間と上昇時間の二段表示へ変更
+・変更点：下降時間と上昇時間の文字列リソースを追加し、段間と上部余白を縮小
+・確認内容：デバッグ用Kotlinコンパイル成功

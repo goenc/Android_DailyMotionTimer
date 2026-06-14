@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -79,6 +80,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.pointer.pointerInput
@@ -178,7 +180,8 @@ private fun WorkoutSecondTimerScreen(
     val view = LocalView.current
     val context = LocalContext.current
     val secondOptions = (MIN_SECONDS..MAX_SECONDS).toList()
-    val secondListState = rememberLazyListState()
+    val fastSecondListState = rememberLazyListState()
+    val slowSecondListState = rememberLazyListState()
     var hasCenteredInitialSelection by remember { mutableStateOf(false) }
     var showLaunchOverlay by remember { mutableStateOf(true) }
     var showSettingsDialog by remember { mutableStateOf(false) }
@@ -379,20 +382,25 @@ private fun WorkoutSecondTimerScreen(
             }
 
             LaunchedEffect(Unit) {
-                while (secondListState.layoutInfo.viewportSize.width == 0) {
+                while (
+                    fastSecondListState.layoutInfo.viewportSize.width == 0 ||
+                    slowSecondListState.layoutInfo.viewportSize.width == 0
+                ) {
                     delay(16)
                 }
                 delay(100)
                 if (latestUiState.timerMode == TimerMode.Motion) {
                     val startupSelectedIndex = latestUiState.selectedSeconds - MIN_SECONDS
-                    secondListState.scrollToItem(startupSelectedIndex)
+                    fastSecondListState.scrollToItem(startupSelectedIndex)
+                    slowSecondListState.scrollToItem(startupSelectedIndex)
                 }
                 hasCenteredInitialSelection = true
             }
 
             LaunchedEffect(uiState.canChangeSeconds) {
                 if (!uiState.canChangeSeconds) {
-                    secondListState.stopScroll()
+                    fastSecondListState.stopScroll()
+                    slowSecondListState.stopScroll()
                 }
             }
 
@@ -426,13 +434,7 @@ private fun WorkoutSecondTimerScreen(
                             )
                         }
                     }
-                    Text(
-                        text = "累計経過 ${uiState.elapsedTimeText}",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                    )
-                    Spacer(modifier = Modifier.height(if (compactLayout) 4.dp else 6.dp))
+                    Spacer(modifier = Modifier.height(if (compactLayout) 2.dp else 4.dp))
                     TimerModeTabs(
                         selectedMode = uiState.timerMode,
                         enabled = uiState.canChangeTimerMode,
@@ -513,41 +515,30 @@ private fun WorkoutSecondTimerScreen(
                 if (uiState.timerMode == TimerMode.Motion) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            state = secondListState,
-                            userScrollEnabled = uiState.canChangeSeconds,
-                            contentPadding = PaddingValues(horizontal = secondsRowHorizontalPadding),
-                            horizontalArrangement = Arrangement.spacedBy(secondChipSpacing),
-                        ) {
-                            items(secondOptions) { second ->
-                                FilterChip(
-                                    selected = uiState.selectedSeconds == second,
-                                    onClick = { onSecondSelected(second) },
-                                    label = {
-                                        Text(
-                                            text = "${second}秒",
-                                            modifier = Modifier.fillMaxWidth(),
-                                            textAlign = TextAlign.Center,
-                                        )
-                                    },
-                                    enabled = uiState.canChangeSeconds,
-                                    modifier = Modifier.width(secondChipWidth),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = uiState.canChangeSeconds,
-                                        selected = uiState.selectedSeconds == second,
-                                        borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                        selectedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    ),
-                                )
-                            }
-                        }
+                        PhaseDurationOptionRow(
+                            label = stringResource(R.string.fast_phase_duration_label),
+                            selectedSeconds = uiState.selectedSeconds,
+                            enabled = uiState.canChangeSeconds,
+                            secondOptions = secondOptions,
+                            listState = fastSecondListState,
+                            secondsRowHorizontalPadding = secondsRowHorizontalPadding,
+                            secondChipSpacing = secondChipSpacing,
+                            secondChipWidth = secondChipWidth,
+                            onSecondSelected = onSecondSelected,
+                        )
+                        PhaseDurationOptionRow(
+                            label = stringResource(R.string.slow_phase_duration_label),
+                            selectedSeconds = uiState.selectedSeconds,
+                            enabled = uiState.canChangeSeconds,
+                            secondOptions = secondOptions,
+                            listState = slowSecondListState,
+                            secondsRowHorizontalPadding = secondsRowHorizontalPadding,
+                            secondChipSpacing = secondChipSpacing,
+                            secondChipWidth = secondChipWidth,
+                            onSecondSelected = onSecondSelected,
+                        )
                         if (!uiState.hasStarted) {
                             LoopCountSelectorRow(
                                 label = stringResource(R.string.timer_loop_count_label),
@@ -687,6 +678,64 @@ private fun TimerModeTabs(
                     )
                 },
             )
+        }
+    }
+}
+
+@Composable
+private fun PhaseDurationOptionRow(
+    label: String,
+    selectedSeconds: Int,
+    enabled: Boolean,
+    secondOptions: List<Int>,
+    listState: LazyListState,
+    secondsRowHorizontalPadding: Dp,
+    secondChipSpacing: Dp,
+    secondChipWidth: Dp,
+    onSecondSelected: (Int) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            state = listState,
+            userScrollEnabled = enabled,
+            contentPadding = PaddingValues(horizontal = secondsRowHorizontalPadding),
+            horizontalArrangement = Arrangement.spacedBy(secondChipSpacing),
+        ) {
+            items(secondOptions) { second ->
+                FilterChip(
+                    selected = selectedSeconds == second,
+                    onClick = { onSecondSelected(second) },
+                    label = {
+                        Text(
+                            text = "${second}秒",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                        )
+                    },
+                    enabled = enabled,
+                    modifier = Modifier.width(secondChipWidth),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = enabled,
+                        selected = selectedSeconds == second,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                    ),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                )
+            }
         }
     }
 }
