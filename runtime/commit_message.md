@@ -1,6 +1,5 @@
-起動背景編集とローディング画面表示を work に反映
+DataStoreの重複生成を修正
 
-・設定画面に起動背景ボタンとピンチ/ドラッグ編集ダイアログを追加
-・保存した拡大率と移動量を起動ローディング画面に反映
-・白画面フラッシュを避けるため windowBackground を暗色統一し LaunchLoadingScreen を先出し
-・versionCode を 2 に更新
+・理由：起動時に同じ設定ファイル向けのDataStoreが複数生成され、アプリがクラッシュしていたため
+・変更点：設定用DataStoreをContext拡張のsingleton delegateに集約
+・確認内容：assembleDebug成功、実機へのinstallDebug成功、MainActivity起動後にAndroidRuntimeのFATALなし、対象プロセス生存確認済み

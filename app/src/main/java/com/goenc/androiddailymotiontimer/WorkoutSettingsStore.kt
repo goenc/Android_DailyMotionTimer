@@ -1,17 +1,19 @@
 package com.goenc.androiddailymotiontimer
 
 import android.content.Context
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.preferencesDataStoreFile
+import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
+
+private const val DATA_STORE_NAME = "workout_timer_settings"
+private val Context.workoutSettingsDataStore by preferencesDataStore(name = DATA_STORE_NAME)
 
 data class StartupBackgroundTransform(
     val scale: Float = DEFAULT_STARTUP_BACKGROUND_SCALE,
@@ -41,9 +43,7 @@ data class WorkoutTimerSettings(
 )
 
 class WorkoutSettingsStore(context: Context) {
-    private val dataStore = PreferenceDataStoreFactory.create(
-        produceFile = { context.preferencesDataStoreFile(DATA_STORE_NAME) },
-    )
+    private val dataStore = context.applicationContext.workoutSettingsDataStore
 
     val settings: Flow<WorkoutTimerSettings> = dataStore.data.map { preferences ->
         WorkoutTimerSettings(
@@ -144,7 +144,6 @@ class WorkoutSettingsStore(context: Context) {
     }
 
     private companion object {
-        private const val DATA_STORE_NAME = "workout_timer_settings"
         private const val MIN_VOLUME = 0
         private const val MAX_VOLUME = 100
         private const val MIN_STARTUP_BACKGROUND_SCALE = 1.0f
