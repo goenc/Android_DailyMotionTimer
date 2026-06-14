@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +26,9 @@ data class WorkoutTimerSettings(
     val loopCompleteVolume: Int = DEFAULT_LOOP_COMPLETE_VOLUME,
     val normalVibrationLevel: Int = DEFAULT_NORMAL_VIBRATION_LEVEL,
     val completeVibrationLevel: Int = DEFAULT_COMPLETE_VIBRATION_LEVEL,
+    val startupBackgroundScale: Float = DEFAULT_STARTUP_BACKGROUND_SCALE,
+    val startupBackgroundOffsetXPct: Float = DEFAULT_STARTUP_BACKGROUND_OFFSET_X_PCT,
+    val startupBackgroundOffsetYPct: Float = DEFAULT_STARTUP_BACKGROUND_OFFSET_Y_PCT,
 )
 
 class WorkoutSettingsStore(context: Context) {
@@ -67,6 +71,17 @@ class WorkoutSettingsStore(context: Context) {
             completeVibrationLevel = (
                 preferences[COMPLETE_VIBRATION_LEVEL_KEY] ?: DEFAULT_COMPLETE_VIBRATION_LEVEL
                 ).coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL),
+            startupBackgroundScale = (
+                preferences[STARTUP_BACKGROUND_SCALE_KEY] ?: DEFAULT_STARTUP_BACKGROUND_SCALE
+                ).coerceIn(MIN_STARTUP_BACKGROUND_SCALE, MAX_STARTUP_BACKGROUND_SCALE),
+            startupBackgroundOffsetXPct = (
+                preferences[STARTUP_BACKGROUND_OFFSET_X_PCT_KEY]
+                    ?: DEFAULT_STARTUP_BACKGROUND_OFFSET_X_PCT
+                ).coerceIn(MIN_STARTUP_BACKGROUND_OFFSET_PCT, MAX_STARTUP_BACKGROUND_OFFSET_PCT),
+            startupBackgroundOffsetYPct = (
+                preferences[STARTUP_BACKGROUND_OFFSET_Y_PCT_KEY]
+                    ?: DEFAULT_STARTUP_BACKGROUND_OFFSET_Y_PCT
+                ).coerceIn(MIN_STARTUP_BACKGROUND_OFFSET_PCT, MAX_STARTUP_BACKGROUND_OFFSET_PCT),
         )
     }
 
@@ -90,6 +105,21 @@ class WorkoutSettingsStore(context: Context) {
                 settings.normalVibrationLevel.coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL)
             preferences[COMPLETE_VIBRATION_LEVEL_KEY] =
                 settings.completeVibrationLevel.coerceIn(MIN_VIBRATION_LEVEL, MAX_VIBRATION_LEVEL)
+            preferences[STARTUP_BACKGROUND_SCALE_KEY] =
+                settings.startupBackgroundScale.coerceIn(
+                    MIN_STARTUP_BACKGROUND_SCALE,
+                    MAX_STARTUP_BACKGROUND_SCALE,
+                )
+            preferences[STARTUP_BACKGROUND_OFFSET_X_PCT_KEY] =
+                settings.startupBackgroundOffsetXPct.coerceIn(
+                    MIN_STARTUP_BACKGROUND_OFFSET_PCT,
+                    MAX_STARTUP_BACKGROUND_OFFSET_PCT,
+                )
+            preferences[STARTUP_BACKGROUND_OFFSET_Y_PCT_KEY] =
+                settings.startupBackgroundOffsetYPct.coerceIn(
+                    MIN_STARTUP_BACKGROUND_OFFSET_PCT,
+                    MAX_STARTUP_BACKGROUND_OFFSET_PCT,
+                )
         }
     }
 
@@ -97,6 +127,13 @@ class WorkoutSettingsStore(context: Context) {
         private const val DATA_STORE_NAME = "workout_timer_settings"
         private const val MIN_VOLUME = 0
         private const val MAX_VOLUME = 100
+        private const val MIN_STARTUP_BACKGROUND_SCALE = 1.0f
+        private const val MAX_STARTUP_BACKGROUND_SCALE = 1.5f
+        private const val DEFAULT_STARTUP_BACKGROUND_SCALE = 1.08f
+        private const val MIN_STARTUP_BACKGROUND_OFFSET_PCT = -0.5f
+        private const val MAX_STARTUP_BACKGROUND_OFFSET_PCT = 0.5f
+        private const val DEFAULT_STARTUP_BACKGROUND_OFFSET_X_PCT = 0.078f
+        private const val DEFAULT_STARTUP_BACKGROUND_OFFSET_Y_PCT = 0.015f
 
         private val TIMER_MODE_KEY = intPreferencesKey("timer_mode")
         private val SELECTED_SECONDS_KEY = intPreferencesKey("selected_seconds")
@@ -113,6 +150,11 @@ class WorkoutSettingsStore(context: Context) {
         private val LOOP_COMPLETE_VOLUME_KEY = intPreferencesKey("loop_complete_volume")
         private val NORMAL_VIBRATION_LEVEL_KEY = intPreferencesKey("normal_vibration_level")
         private val COMPLETE_VIBRATION_LEVEL_KEY = intPreferencesKey("complete_vibration_level")
+        private val STARTUP_BACKGROUND_SCALE_KEY = floatPreferencesKey("startup_background_scale")
+        private val STARTUP_BACKGROUND_OFFSET_X_PCT_KEY =
+            floatPreferencesKey("startup_background_offset_x_pct")
+        private val STARTUP_BACKGROUND_OFFSET_Y_PCT_KEY =
+            floatPreferencesKey("startup_background_offset_y_pct")
 
         private fun normalizeLoopCount(value: Int): Int {
             val clampedValue = value.coerceIn(MIN_LOOP_COUNT, MAX_LOOP_COUNT)

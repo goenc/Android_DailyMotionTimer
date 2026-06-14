@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -68,15 +69,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.ViewModelProvider
 import com.goenc.androiddailymotiontimer.ui.theme.AndroidDailyMotionTimerTheme
@@ -124,6 +129,7 @@ class MainActivity : ComponentActivity() {
                     onEarlyTickVolumeChanged = timerViewModel::setEarlyTickVolume,
                     onTickVolumeChanged = timerViewModel::setTickVolume,
                     onLoopCompleteVolumeChanged = timerViewModel::setLoopCompleteVolume,
+                    onStartupBackgroundTransformSaved = timerViewModel::setStartupBackgroundTransform,
                     onPrimaryAction = timerViewModel::onPrimaryAction,
                     onSecondaryAction = timerViewModel::onSecondaryAction,
                     countdownCuePlayer = countdownCuePlayer,
@@ -159,6 +165,7 @@ private fun WorkoutSecondTimerScreen(
     onEarlyTickVolumeChanged: (Int) -> Unit,
     onTickVolumeChanged: (Int) -> Unit,
     onLoopCompleteVolumeChanged: (Int) -> Unit,
+    onStartupBackgroundTransformSaved: (Float, Float, Float) -> Unit,
     onPrimaryAction: () -> Unit,
     onSecondaryAction: () -> Unit,
     countdownCuePlayer: CountdownCuePlayer,
@@ -171,6 +178,7 @@ private fun WorkoutSecondTimerScreen(
     var hasCenteredInitialSelection by remember { mutableStateOf(false) }
     var showLaunchOverlay by remember { mutableStateOf(true) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showStartupBackgroundDialog by remember { mutableStateOf(false) }
     val latestUiState by rememberUpdatedState(uiState)
     val idleBackgroundColor = MaterialTheme.colorScheme.surfaceVariant
     val timerBackgroundColor = remember(uiState, idleBackgroundColor) {
@@ -589,19 +597,11 @@ private fun WorkoutSecondTimerScreen(
 
             if (showLaunchOverlay) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    Image(
-                        painter = painterResource(id = R.drawable.splash_background_optimized),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        alignment = Alignment.BottomEnd,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                scaleX = 1.08f
-                                scaleY = 1.08f
-                                translationX = 84f
-                                translationY = 28f
-                            },
+                    StartupBackgroundImage(
+                        modifier = Modifier.fillMaxSize(),
+                        scale = uiState.startupBackgroundScale,
+                        offsetXPct = uiState.startupBackgroundOffsetXPct,
+                        offsetYPct = uiState.startupBackgroundOffsetYPct,
                     )
                     Text(
                         text = "ロード中",
@@ -619,6 +619,7 @@ private fun WorkoutSecondTimerScreen(
         CountdownSoundSettingsDialog(
             uiState = uiState,
             onDismiss = { showSettingsDialog = false },
+            onStartupBackgroundClick = { showStartupBackgroundDialog = true },
             onLoopChanged = onLoopChanged,
             onVibrationChanged = onVibrationChanged,
             onCountdownSoundChanged = onCountdownSoundChanged,
@@ -628,6 +629,19 @@ private fun WorkoutSecondTimerScreen(
             onLoopCompleteVolumeChanged = onLoopCompleteVolumeChanged,
             onNormalVibrationLevelChanged = onNormalVibrationLevelChanged,
             onCompleteVibrationLevelChanged = onCompleteVibrationLevelChanged,
+        )
+    }
+
+    if (showStartupBackgroundDialog) {
+        StartupBackgroundSettingsDialog(
+            initialScale = uiState.startupBackgroundScale,
+            initialOffsetXPct = uiState.startupBackgroundOffsetXPct,
+            initialOffsetYPct = uiState.startupBackgroundOffsetYPct,
+            onDismiss = { showStartupBackgroundDialog = false },
+            onSave = { scale, offsetXPct, offsetYPct ->
+                onStartupBackgroundTransformSaved(scale, offsetXPct, offsetYPct)
+                showStartupBackgroundDialog = false
+            },
         )
     }
 }
@@ -671,6 +685,7 @@ private fun TimerModeTabs(
 private fun CountdownSoundSettingsDialog(
     uiState: WorkoutTimerUiState,
     onDismiss: () -> Unit,
+    onStartupBackgroundClick: () -> Unit,
     onLoopChanged: (Boolean) -> Unit,
     onVibrationChanged: (Boolean) -> Unit,
     onCountdownSoundChanged: (Boolean) -> Unit,
@@ -716,6 +731,13 @@ private fun CountdownSoundSettingsDialog(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        Button(
+                            onClick = onStartupBackgroundClick,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp),
+                        ) {
+                            Text(stringResource(R.string.timer_startup_background_button))
+                        }
                         TimerToggleRow(
                             label = stringResource(R.string.timer_toggle_loop),
                             checked = uiState.loopEnabled,
@@ -781,6 +803,155 @@ private fun CountdownSoundSettingsDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StartupBackgroundSettingsDialog(
+    initialScale: Float,
+    initialOffsetXPct: Float,
+    initialOffsetYPct: Float,
+    onDismiss: () -> Unit,
+    onSave: (Float, Float, Float) -> Unit,
+) {
+    var scale by remember(initialScale) { mutableStateOf(initialScale) }
+    var offsetXPct by remember(initialOffsetXPct) { mutableStateOf(initialOffsetXPct) }
+    var offsetYPct by remember(initialOffsetYPct) { mutableStateOf(initialOffsetYPct) }
+    var previewSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            tonalElevation = 6.dp,
+        ) {
+            BoxWithConstraints {
+                val dialogHeight = (maxHeight * 0.9f).coerceAtMost(720.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(dialogHeight)
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.timer_startup_background_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = onDismiss) {
+                            Text("閉じる")
+                        }
+                    }
+
+                    Text(
+                        text = stringResource(R.string.timer_startup_background_instruction),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .graphicsLayer { clip = true }
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .onSizeChanged { previewSize = it }
+                            .pointerInput(Unit) {
+                                detectTransformGestures { _, pan, zoom, _ ->
+                                    scale = (scale * zoom).coerceIn(
+                                        MIN_STARTUP_BACKGROUND_SCALE,
+                                        MAX_STARTUP_BACKGROUND_SCALE,
+                                    )
+                                    val width = previewSize.width.coerceAtLeast(1).toFloat()
+                                    val height = previewSize.height.coerceAtLeast(1).toFloat()
+                                    offsetXPct = (offsetXPct + pan.x / width).coerceIn(
+                                        MIN_STARTUP_BACKGROUND_OFFSET_PCT,
+                                        MAX_STARTUP_BACKGROUND_OFFSET_PCT,
+                                    )
+                                    offsetYPct = (offsetYPct + pan.y / height).coerceIn(
+                                        MIN_STARTUP_BACKGROUND_OFFSET_PCT,
+                                        MAX_STARTUP_BACKGROUND_OFFSET_PCT,
+                                    )
+                                }
+                            },
+                    ) {
+                        StartupBackgroundImage(
+                            modifier = Modifier.fillMaxSize(),
+                            scale = scale,
+                            offsetXPct = offsetXPct,
+                            offsetYPct = offsetYPct,
+                        )
+                        Text(
+                            text = stringResource(
+                                R.string.timer_startup_background_preview_scale,
+                                scale,
+                            ),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(12.dp),
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TextButton(
+                            onClick = {
+                                scale = DEFAULT_STARTUP_BACKGROUND_SCALE
+                                offsetXPct = DEFAULT_STARTUP_BACKGROUND_OFFSET_X_PCT
+                                offsetYPct = DEFAULT_STARTUP_BACKGROUND_OFFSET_Y_PCT
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(stringResource(R.string.timer_startup_background_reset))
+                        }
+                        Button(
+                            onClick = { onSave(scale, offsetXPct, offsetYPct) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(18.dp),
+                        ) {
+                            Text(stringResource(R.string.timer_startup_background_save))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StartupBackgroundImage(
+    modifier: Modifier = Modifier,
+    scale: Float,
+    offsetXPct: Float,
+    offsetYPct: Float,
+) {
+    BoxWithConstraints(modifier = modifier) {
+        val density = LocalDensity.current
+        val translationXPx = with(density) { maxWidth.toPx() * offsetXPct }
+        val translationYPx = with(density) { maxHeight.toPx() * offsetYPct }
+        Image(
+            painter = painterResource(id = R.drawable.splash_background_optimized),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.BottomEnd,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = translationXPx
+                    translationY = translationYPx
+                },
+        )
     }
 }
 
