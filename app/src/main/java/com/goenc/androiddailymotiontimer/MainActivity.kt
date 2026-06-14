@@ -380,6 +380,13 @@ private fun WorkoutSecondTimerScreen(
             } else {
                 stringResource(R.string.timer_action_pause)
             }
+            val headerCountText = when (uiState.timerMode) {
+                TimerMode.Motion -> stringResource(R.string.round_trip_count, uiState.roundTripCount)
+                TimerMode.NormalCount -> stringResource(
+                    R.string.normal_count_limit_value,
+                    uiState.normalCountMaxCount,
+                )
+            }
 
             LaunchedEffect(Unit) {
                 while (
@@ -422,10 +429,11 @@ private fun WorkoutSecondTimerScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "筋トレ秒",
-                            style = MaterialTheme.typography.headlineSmall,
+                            text = headerCountText,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.weight(1f),
+                            color = RunningInfoTextColor,
                         )
                         IconButton(onClick = { showSettingsDialog = true }) {
                             Icon(
@@ -496,19 +504,6 @@ private fun WorkoutSecondTimerScreen(
                             modifier = Modifier.fillMaxWidth(),
                             color = countColor,
                         )
-                        if (uiState.timerMode == TimerMode.Motion) {
-                            Spacer(modifier = Modifier.height(countSectionSpacing))
-                            Text(
-                                text = stringResource(R.string.round_trip_count, uiState.roundTripCount),
-                                fontSize = roundTripFontSize,
-                                lineHeight = roundTripLineHeight,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                modifier = Modifier.fillMaxWidth(),
-                                color = RunningInfoTextColor,
-                            )
-                        }
                     }
                 }
 
