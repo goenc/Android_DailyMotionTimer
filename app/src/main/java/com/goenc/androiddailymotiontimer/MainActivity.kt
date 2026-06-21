@@ -473,7 +473,19 @@ private fun WorkoutSecondTimerScreen(
                 maxHeight < 760.dp -> 46.sp
                 else -> 50.sp
             }
-            val countSectionSpacing = if (compactLayout) 2.dp else 4.dp
+            val heartRateFontSize = when {
+                maxHeight < 620.dp -> 22.sp
+                maxHeight < 760.dp -> 24.sp
+                else -> 26.sp
+            }
+            val heartRateLineHeight = when {
+                maxHeight < 620.dp -> 26.sp
+                maxHeight < 760.dp -> 28.sp
+                else -> 30.sp
+            }
+            val modeTabsTopPadding = 12.dp
+            val mainSectionSpacing = if (compactLayout) 6.dp else 8.dp
+            val countSectionSpacing = if (compactLayout) 4.dp else 5.dp
             val secondChipWidth = 72.dp
             val secondChipSpacing = 8.dp
             val secondsRowHorizontalPadding = maxOf(0.dp, (maxWidth - secondChipWidth) / 2)
@@ -537,9 +549,9 @@ private fun WorkoutSecondTimerScreen(
                     .safeDrawingPadding()
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(if (compactLayout) 6.dp else 8.dp),
+                verticalArrangement = Arrangement.spacedBy(mainSectionSpacing),
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -550,11 +562,17 @@ private fun WorkoutSecondTimerScreen(
                             if (heartRate > 0) heartRate.toString() else "--",
                         ),
                         style = MaterialTheme.typography.titleMedium,
+                        fontSize = heartRateFontSize,
+                        lineHeight = heartRateLineHeight,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Box(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = modeTabsTopPadding),
+                    ) {
                         TimerModeTabs(
                             selectedMode = uiState.timerMode,
                             enabled = uiState.canChangeTimerMode,
@@ -590,7 +608,8 @@ private fun WorkoutSecondTimerScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .weight(1f)
+                        .padding(top = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
