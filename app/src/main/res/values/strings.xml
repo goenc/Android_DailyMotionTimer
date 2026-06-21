@@ -22,7 +22,7 @@
     <string name="normal_count_interval_large">大</string>
     <string name="timer_completed_rounds">%1$d回終了</string>
     <string name="timer_mode_motion">上下</string>
-    <string name="timer_mode_motion_with_heart_rate">上下  %1$s bpm</string>
+    <string name="heart_rate_header">脈拍  %1$s bpm</string>
     <string name="timer_mode_normal_count">カウント</string>
     <string name="timer_toggle_loop">ループ</string>
     <string name="timer_loop_count_label">最大回数</string>

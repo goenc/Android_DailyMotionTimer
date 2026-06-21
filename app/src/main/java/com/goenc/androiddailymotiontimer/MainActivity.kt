@@ -544,10 +544,19 @@ private fun WorkoutSecondTimerScreen(
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
+                    Text(
+                        text = stringResource(
+                            R.string.heart_rate_header,
+                            if (heartRate > 0) heartRate.toString() else "--",
+                        ),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     Box(modifier = Modifier.fillMaxWidth()) {
                         TimerModeTabs(
                             selectedMode = uiState.timerMode,
-                            heartRate = heartRate,
                             enabled = uiState.canChangeTimerMode,
                             onModeSelected = onTimerModeSelected,
                             modifier = Modifier
@@ -783,7 +792,6 @@ private fun WorkoutSecondTimerScreen(
 @Composable
 private fun TimerModeTabs(
     selectedMode: TimerMode,
-    heartRate: Int,
     enabled: Boolean,
     onModeSelected: (TimerMode) -> Unit,
     modifier: Modifier = Modifier,
@@ -807,10 +815,7 @@ private fun TimerModeTabs(
                 text = {
                     Text(
                         text = when (mode) {
-                            TimerMode.Motion -> stringResource(
-                                R.string.timer_mode_motion_with_heart_rate,
-                                if (heartRate > 0) heartRate.toString() else "--",
-                            )
+                            TimerMode.Motion -> stringResource(R.string.timer_mode_motion)
                             TimerMode.NormalCount -> stringResource(R.string.timer_mode_normal_count)
                         },
                         fontWeight = FontWeight.SemiBold,
