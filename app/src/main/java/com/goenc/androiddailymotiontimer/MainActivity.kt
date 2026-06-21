@@ -1,18 +1,24 @@
 package com.goenc.androiddailymotiontimer
 
+import android.Manifest
+import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +65,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -85,6 +92,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import com.goenc.androiddailymotiontimer.ui.theme.AndroidDailyMotionTimerTheme
 import kotlinx.coroutines.delay
@@ -105,6 +113,13 @@ class MainActivity : ComponentActivity() {
     private lateinit var timerViewModel: WorkoutSecondTimerViewModel
     private val countdownCuePlayer = CountdownCuePlayer()
     private lateinit var countdownVoicePlayer: CountdownVoicePlayer
+    private lateinit var heartRateMonitor: HeartRateMonitor
+    private var heartRate by mutableIntStateOf(0)
+    private var heartRateDevices by mutableStateOf(emptyList<HeartRateDevice>())
+    private var heartRateConnectionState by mutableStateOf(HeartRateConnectionState.Disconnected)
+    private var heartRateError by mutableStateOf<String?>(null)
+    private var savedHeartRateDevice by mutableStateOf<SavedHeartRateDevice?>(null)
+    private var hasBluetoothPermission by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,12 +127,43 @@ class MainActivity : ComponentActivity() {
             WorkoutSettingsStore(applicationContext).readStartupBackgroundTransformSync()
         timerViewModel = ViewModelProvider(this)[WorkoutSecondTimerViewModel::class.java]
         countdownVoicePlayer = CountdownVoicePlayer(applicationContext)
+        hasBluetoothPermission = hasBluetoothPermissions()
+        heartRateMonitor = HeartRateMonitor(
+            context = applicationContext,
+            bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter,
+            onDevicesChanged = { devices -> runOnUiThread { heartRateDevices = devices } },
+            onConnectionChanged = { state, error ->
+                runOnUiThread {
+                    heartRateConnectionState = state
+                    heartRateError = error
+                }
+            },
+            onHeartRateChanged = { value -> runOnUiThread { heartRate = value } },
+        )
+        savedHeartRateDevice = heartRateMonitor.savedDevice
         enableEdgeToEdge()
         setContent {
             AndroidDailyMotionTimerTheme {
                 val uiState by timerViewModel.uiState.collectAsState()
+                val permissionLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestMultiplePermissions(),
+                ) {
+                    hasBluetoothPermission = hasBluetoothPermissions()
+                    if (hasBluetoothPermission) {
+                        heartRateError = null
+                        heartRateMonitor.connectSavedDevice()
+                    } else {
+                        heartRateError = "Bluetooth権限が必要です"
+                    }
+                }
                 WorkoutSecondTimerScreen(
                     uiState = uiState,
+                    heartRate = heartRate,
+                    heartRateDevices = heartRateDevices,
+                    heartRateConnectionState = heartRateConnectionState,
+                    heartRateError = heartRateError,
+                    savedHeartRateDevice = savedHeartRateDevice,
+                    hasBluetoothPermission = hasBluetoothPermission,
                     initialStartupBackgroundTransform = initialStartupBackgroundTransform,
                     vibrationEvents = timerViewModel.vibrationEvents,
                     countdownSoundEvents = timerViewModel.countdownSoundEvents,
@@ -139,6 +185,20 @@ class MainActivity : ComponentActivity() {
                     onStartupBackgroundTransformSaved = timerViewModel::setStartupBackgroundTransform,
                     onPrimaryAction = timerViewModel::onPrimaryAction,
                     onSecondaryAction = timerViewModel::onSecondaryAction,
+                    onRequestBluetoothPermission = {
+                        permissionLauncher.launch(bluetoothPermissions())
+                    },
+                    onStartHeartRateScan = heartRateMonitor::startScan,
+                    onConnectHeartRateDevice = { address ->
+                        heartRateMonitor.connect(address)
+                        savedHeartRateDevice = heartRateMonitor.savedDevice
+                    },
+                    onDisconnectHeartRateDevice = heartRateMonitor::disconnect,
+                    onForgetHeartRateDevice = {
+                        heartRateMonitor.forgetDevice()
+                        savedHeartRateDevice = null
+                        heartRateDevices = emptyList()
+                    },
                     countdownCuePlayer = countdownCuePlayer,
                     countdownVoicePlayer = countdownVoicePlayer,
                 )
@@ -146,16 +206,47 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        hasBluetoothPermission = hasBluetoothPermissions()
+        if (hasBluetoothPermission && heartRateMonitor.savedDevice != null) {
+            heartRateMonitor.connectSavedDevice()
+        }
+    }
+
+    override fun onStop() {
+        heartRateMonitor.stopScan()
+        heartRateMonitor.disconnect()
+        super.onStop()
+    }
+
     override fun onDestroy() {
         countdownVoicePlayer.release()
         countdownCuePlayer.release()
         super.onDestroy()
     }
+
+    private fun hasBluetoothPermissions(): Boolean = bluetoothPermissions().all { permission ->
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun bluetoothPermissions(): Array<String> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
 }
 
 @Composable
 private fun WorkoutSecondTimerScreen(
     uiState: WorkoutTimerUiState,
+    heartRate: Int,
+    heartRateDevices: List<HeartRateDevice>,
+    heartRateConnectionState: HeartRateConnectionState,
+    heartRateError: String?,
+    savedHeartRateDevice: SavedHeartRateDevice?,
+    hasBluetoothPermission: Boolean,
     initialStartupBackgroundTransform: StartupBackgroundTransform,
     vibrationEvents: SharedFlow<VibrationEvent>,
     countdownSoundEvents: SharedFlow<CountdownSoundEvent>,
@@ -177,6 +268,11 @@ private fun WorkoutSecondTimerScreen(
     onStartupBackgroundTransformSaved: (Float, Float, Float) -> Unit,
     onPrimaryAction: () -> Unit,
     onSecondaryAction: () -> Unit,
+    onRequestBluetoothPermission: () -> Unit,
+    onStartHeartRateScan: () -> Unit,
+    onConnectHeartRateDevice: (String) -> Unit,
+    onDisconnectHeartRateDevice: () -> Unit,
+    onForgetHeartRateDevice: () -> Unit,
     countdownCuePlayer: CountdownCuePlayer,
     countdownVoicePlayer: CountdownVoicePlayer,
 ) {
@@ -451,6 +547,7 @@ private fun WorkoutSecondTimerScreen(
                     Box(modifier = Modifier.fillMaxWidth()) {
                         TimerModeTabs(
                             selectedMode = uiState.timerMode,
+                            heartRate = heartRate,
                             enabled = uiState.canChangeTimerMode,
                             onModeSelected = onTimerModeSelected,
                             modifier = Modifier
@@ -645,6 +742,11 @@ private fun WorkoutSecondTimerScreen(
     if (showSettingsDialog) {
         CountdownSoundSettingsDialog(
             uiState = uiState,
+            heartRateDevices = heartRateDevices,
+            heartRateConnectionState = heartRateConnectionState,
+            heartRateError = heartRateError,
+            savedHeartRateDevice = savedHeartRateDevice,
+            hasBluetoothPermission = hasBluetoothPermission,
             onDismiss = { showSettingsDialog = false },
             onStartupBackgroundClick = { showStartupBackgroundDialog = true },
             onLoopChanged = onLoopChanged,
@@ -656,6 +758,11 @@ private fun WorkoutSecondTimerScreen(
             onLoopCompleteVolumeChanged = onLoopCompleteVolumeChanged,
             onNormalVibrationLevelChanged = onNormalVibrationLevelChanged,
             onCompleteVibrationLevelChanged = onCompleteVibrationLevelChanged,
+            onRequestBluetoothPermission = onRequestBluetoothPermission,
+            onStartHeartRateScan = onStartHeartRateScan,
+            onConnectHeartRateDevice = onConnectHeartRateDevice,
+            onDisconnectHeartRateDevice = onDisconnectHeartRateDevice,
+            onForgetHeartRateDevice = onForgetHeartRateDevice,
         )
     }
 
@@ -676,6 +783,7 @@ private fun WorkoutSecondTimerScreen(
 @Composable
 private fun TimerModeTabs(
     selectedMode: TimerMode,
+    heartRate: Int,
     enabled: Boolean,
     onModeSelected: (TimerMode) -> Unit,
     modifier: Modifier = Modifier,
@@ -699,7 +807,10 @@ private fun TimerModeTabs(
                 text = {
                     Text(
                         text = when (mode) {
-                            TimerMode.Motion -> stringResource(R.string.timer_mode_motion)
+                            TimerMode.Motion -> stringResource(
+                                R.string.timer_mode_motion_with_heart_rate,
+                                if (heartRate > 0) heartRate.toString() else "--",
+                            )
                             TimerMode.NormalCount -> stringResource(R.string.timer_mode_normal_count)
                         },
                         fontWeight = FontWeight.SemiBold,
@@ -771,6 +882,11 @@ private fun PhaseDurationOptionRow(
 @Composable
 private fun CountdownSoundSettingsDialog(
     uiState: WorkoutTimerUiState,
+    heartRateDevices: List<HeartRateDevice>,
+    heartRateConnectionState: HeartRateConnectionState,
+    heartRateError: String?,
+    savedHeartRateDevice: SavedHeartRateDevice?,
+    hasBluetoothPermission: Boolean,
     onDismiss: () -> Unit,
     onStartupBackgroundClick: () -> Unit,
     onLoopChanged: (Boolean) -> Unit,
@@ -782,6 +898,11 @@ private fun CountdownSoundSettingsDialog(
     onLoopCompleteVolumeChanged: (Int) -> Unit,
     onNormalVibrationLevelChanged: (Int) -> Unit,
     onCompleteVibrationLevelChanged: (Int) -> Unit,
+    onRequestBluetoothPermission: () -> Unit,
+    onStartHeartRateScan: () -> Unit,
+    onConnectHeartRateDevice: (String) -> Unit,
+    onDisconnectHeartRateDevice: () -> Unit,
+    onForgetHeartRateDevice: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -886,6 +1007,107 @@ private fun CountdownSoundSettingsDialog(
                             selectedLevel = uiState.completeVibrationLevel,
                             onLevelSelected = onCompleteVibrationLevelChanged,
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.heart_rate_device_settings_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = stringResource(
+                                R.string.heart_rate_connection_status,
+                                heartRateConnectionState.label,
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        heartRateError?.let { error ->
+                            Text(
+                                text = error,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        if (!hasBluetoothPermission) {
+                            Button(
+                                onClick = onRequestBluetoothPermission,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(stringResource(R.string.heart_rate_permission_button))
+                            }
+                        } else {
+                            savedHeartRateDevice?.let { device ->
+                                Text(
+                                    text = device.name,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = device.address,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Button(
+                                    onClick = onStartHeartRateScan,
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(stringResource(R.string.heart_rate_scan_button))
+                                }
+                                if (heartRateConnectionState == HeartRateConnectionState.Connected ||
+                                    heartRateConnectionState == HeartRateConnectionState.Connecting
+                                ) {
+                                    Button(
+                                        onClick = onDisconnectHeartRateDevice,
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Text(stringResource(R.string.heart_rate_disconnect_button))
+                                    }
+                                }
+                            }
+                            if (savedHeartRateDevice != null) {
+                                TextButton(onClick = onForgetHeartRateDevice) {
+                                    Text(stringResource(R.string.heart_rate_forget_button))
+                                }
+                            }
+                            if (heartRateConnectionState == HeartRateConnectionState.Scanning) {
+                                Text(
+                                    text = stringResource(R.string.heart_rate_detected_devices),
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                heartRateDevices.forEach { device ->
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onConnectHeartRateDevice(device.address) }
+                                            .padding(vertical = 8.dp),
+                                    ) {
+                                        Text(
+                                            text = if (device.supportsHeartRate) {
+                                                stringResource(
+                                                    R.string.heart_rate_supported_device,
+                                                    device.name,
+                                                )
+                                            } else {
+                                                device.name
+                                            },
+                                            fontWeight = if (device.supportsHeartRate) {
+                                                FontWeight.SemiBold
+                                            } else {
+                                                FontWeight.Normal
+                                            },
+                                        )
+                                        Text(
+                                            text = "${device.address}  RSSI: ${device.rssi} dBm",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
