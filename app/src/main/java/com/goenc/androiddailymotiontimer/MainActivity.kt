@@ -690,34 +690,11 @@ private fun WorkoutSecondTimerScreen(
                             secondChipWidth = secondChipWidth,
                             onSecondSelected = onSlowPhaseDurationSelected,
                         )
-                        if (!uiState.hasStarted) {
-                            LoopCountSelectorRow(
-                                label = stringResource(R.string.timer_loop_count_label),
-                                selectedCount = uiState.maxLoopCount,
-                                enabled = true,
-                                onCountSelected = onMaxLoopCountChanged,
-                            )
-                        } else {
-                            NormalCountTargetPanel(
-                                targetCount = uiState.maxLoopCount,
-                            )
-                        }
-                    }
-                } else if (!uiState.hasStarted) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        NormalCountIntervalSelectorRow(
-                            selectedInterval = uiState.normalCountInterval,
-                            enabled = true,
-                            onIntervalSelected = onNormalCountIntervalSelected,
-                        )
                         LoopCountSelectorRow(
                             label = stringResource(R.string.timer_loop_count_label),
-                            selectedCount = uiState.normalCountMaxCount,
-                            enabled = true,
-                            onCountSelected = onNormalCountMaxCountChanged,
+                            selectedCount = uiState.maxLoopCount,
+                            enabled = !uiState.hasStarted,
+                            onCountSelected = onMaxLoopCountChanged,
                         )
                     }
                 } else {
@@ -727,11 +704,14 @@ private fun WorkoutSecondTimerScreen(
                     ) {
                         NormalCountIntervalSelectorRow(
                             selectedInterval = uiState.normalCountInterval,
-                            enabled = false,
+                            enabled = !uiState.hasStarted,
                             onIntervalSelected = onNormalCountIntervalSelected,
                         )
-                        NormalCountTargetPanel(
-                            targetCount = uiState.normalCountMaxCount,
+                        LoopCountSelectorRow(
+                            label = stringResource(R.string.timer_loop_count_label),
+                            selectedCount = uiState.normalCountMaxCount,
+                            enabled = !uiState.hasStarted,
+                            onCountSelected = onNormalCountMaxCountChanged,
                         )
                     }
                 }
@@ -1366,37 +1346,6 @@ private fun LoopCountSelectorRow(
                 },
                 maxLines = 1,
                 softWrap = false,
-            )
-        }
-    }
-}
-
-@Composable
-private fun NormalCountTargetPanel(
-    targetCount: Int,
-) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        tonalElevation = 2.dp,
-        shadowElevation = 0.dp,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.normal_count_target_label),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = stringResource(R.string.normal_count_limit_value, targetCount),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
             )
         }
     }
